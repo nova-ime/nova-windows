@@ -2,6 +2,7 @@
 
 #include "Layout.h"
 #include "d2d.h"
+#include "NovaRenderer.h"
 #include <WeaselUtility.h>
 
 namespace weasel {
@@ -43,6 +44,13 @@ class WeaselPanel {
   bool _DrawPreedit(const Text& text, bool isPreedit);
   bool _DrawCandidates();
   void _ResizeWindow();
+  void _ResizeWindowTo(const CSize& size);
+  // Nova candidate panel (nova-ui), used when the Nova schema is active.
+  bool _NovaWanted() const;
+  void _RefreshNova();
+  void _NovaReposition();
+  void _NovaPerform(int hit_index);
+  NovaRenderer::Style _NovaStyle() const;
   void _Reposition(bool adj = false);
   void _TextOut(CRect& rc,
                 const wstring& text,
@@ -115,6 +123,17 @@ class WeaselPanel {
   wstring m_current_half_icon;
   wstring m_current_full_icon;
   UICallbackFunc& m_uiCallback;
+  NovaActionFunc& m_novaCallback;
+  NovaRenderer m_nova;
+  bool m_nova_active = false;
+  bool m_nova_anchored = false;
+  bool m_nova_upward = false;
+  bool m_nova_tracking = false;
+  int m_nova_left = 0;
+  double m_nova_max_width = 0;
+  int m_nova_hover = -1;
+  int m_nova_pressed = -1;
+  int m_nova_scroll = 0;
   // window handle and per-instance click timer
   HWND m_hWnd;
   HWND m_parent = nullptr;

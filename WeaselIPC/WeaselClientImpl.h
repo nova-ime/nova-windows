@@ -23,6 +23,7 @@ class ClientImpl {
   bool SelectCandidateOnCurrentPage(size_t index);
   bool HighlightCandidateOnCurrentPage(size_t index);
   bool ChangePage(bool backward);
+  bool NovaAction(int kind, int value);
   void UpdateInputPosition(RECT const& rc);
   void FocusIn();
   void FocusOut();

@@ -17,6 +17,39 @@
 using namespace weasel;
 
 static RimeApi* rime_api;
+
+// Nova: read the rime properties the Nova candidate panel needs.
+// A property that is missing or does not fit the buffer counts as absent
+// (librime's strncpy leaves no terminating NUL on overflow).
+static bool NovaProperty(RimeSessionId session_id,
+                         const char* name,
+                         size_t capacity,
+                         std::wstring& out) {
+  std::vector<char> buffer(capacity, 0);
+  if (!rime_api->get_property(session_id, name, buffer.data(), capacity) ||
+      buffer[capacity - 1] != 0)
+    return false;
+  out = string_to_wstring(buffer.data(), CP_UTF8);
+  return true;
+}
+
+// Returns true (and fills `nova`) when the Nova schema is driving this session.
+static bool FillNovaData(RimeSessionId session_id, NovaData& nova) {
+  nova.clear();
+  nova.has_tree = NovaProperty(session_id, "nova_tree", 8192, nova.tree);
+  nova.has_list = NovaProperty(session_id, "nova_list", 1024, nova.list);
+  if (!nova.has_tree && !nova.has_list) {
+    nova.clear();
+    return false;
+  }
+  nova.has_cursor = NovaProperty(session_id, "nova_cursor", 32, nova.cursor);
+  nova.has_raw = NovaProperty(session_id, "nova_qp_raw", 4096, nova.qp_raw);
+  nova.has_map = NovaProperty(session_id, "nova_qp_map", 16384, nova.qp_map);
+  const char* input = rime_api->get_input(session_id);
+  nova.input = input ? string_to_wstring(input, CP_UTF8) : std::wstring();
+  nova.on = true;
+  return true;
+}
 WeaselSessionId _GenerateNewWeaselSessionId(SessionStatusMap sm, DWORD pid) {
   if (sm.empty())
     return (WeaselSessionId)(pid + 1);
@@ -340,6 +373,42 @@ bool RimeWithWeaselHandler::ChangePage(bool backward,
   DLOG(INFO) << "change page, ipc_id = " << ipc_id
              << (backward ? "backward" : "foreward");
   bool res = rime_api->change_page(to_session_id(ipc_id), backward);
+  _Respond(ipc_id, eat);
+  _UpdateUI(ipc_id);
+  return res;
+}
+
+// Nova panel actions. Same behaviour as nova_ui_rime_* in nova-ui/src/rime_glue.cc
+// (kept inline so RimeWithWeasel does not depend on the nova-ui layout code).
+bool RimeWithWeaselHandler::NovaAction(int kind,
+                                       int value,
+                                       WeaselSessionId ipc_id,
+                                       EatLine eat) {
+  DLOG(INFO) << "nova action, ipc_id = " << ipc_id << ", kind = " << kind
+             << ", value = " << value;
+  if (m_disabled)
+    return false;
+  const RimeSessionId session = to_session_id(ipc_id);
+  constexpr int kKeyPageUp = 0xff55, kKeyPageDown = 0xff56, kKeyF20 = 0xffd1;
+  bool res = false;
+  switch (kind) {
+    case NOVA_ACT_SELECT:
+      res = rime_api->select_candidate_on_current_page(session, (size_t)value);
+      break;
+    case NOVA_ACT_PIN:
+      res = rime_api->process_key(session, 0x30 + value, 0);
+      break;
+    case NOVA_ACT_CURSOR:
+      rime_api->set_property(session, "nova_cursor",
+                             std::to_string(value).c_str());
+      res = rime_api->process_key(session, kKeyF20, 0);
+      break;
+    case NOVA_ACT_PAGE:
+      res = rime_api->process_key(session, value ? kKeyPageUp : kKeyPageDown, 0);
+      break;
+    default:
+      return false;
+  }
   _Respond(ipc_id, eat);
   _UpdateUI(ipc_id);
   return res;
@@ -899,6 +968,34 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
 
       auto s = ss.str();
       body.append(L"ctx.cand=").append(std::move(s)).append(L"\n");
+    }
+    if (is_composing) {
+      NovaData nova;
+      if (FillNovaData(session_id, nova)) {
+        body.append(L"ctx.nova.input=")
+            .append(escape_string(nova.input))
+            .append(L"\n");
+        if (nova.has_tree)
+          body.append(L"ctx.nova.tree=")
+              .append(escape_string(nova.tree))
+              .append(L"\n");
+        if (nova.has_list)
+          body.append(L"ctx.nova.list=")
+              .append(escape_string(nova.list))
+              .append(L"\n");
+        if (nova.has_cursor)
+          body.append(L"ctx.nova.cursor=")
+              .append(escape_string(nova.cursor))
+              .append(L"\n");
+        if (nova.has_raw)
+          body.append(L"ctx.nova.qp_raw=")
+              .append(escape_string(nova.qp_raw))
+              .append(L"\n");
+        if (nova.has_map)
+          body.append(L"ctx.nova.qp_map=")
+              .append(escape_string(nova.qp_map))
+              .append(L"\n");
+      }
     }
     rime_api->free_context(&ctx);
   }
@@ -1492,6 +1589,8 @@ void RimeWithWeaselHandler::_GetContext(Context& weasel_context,
       CandidateInfo& cinfo(weasel_context.cinfo);
       _GetCandidateInfo(cinfo, ctx);
     }
+    if (ctx.composition.length > 0)
+      FillNovaData(session_id, weasel_context.nova);
     rime_api->free_context(&ctx);
   }
 }

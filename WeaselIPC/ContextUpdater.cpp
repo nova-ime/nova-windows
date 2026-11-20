@@ -37,6 +37,31 @@ void ContextUpdater::Store(Deserializer::KeyType const& k,
     _StoreCand(k, value);
     return;
   }
+
+  if (k[1] == L"nova" && k.size() == 3) {
+    NovaData& nova = m_pTarget->p_context->nova;
+    nova.on = true;
+    std::wstring v = unescape_string(value);
+    if (k[2] == L"input") {
+      nova.input = v;
+    } else if (k[2] == L"tree") {
+      nova.tree = v;
+      nova.has_tree = true;
+    } else if (k[2] == L"list") {
+      nova.list = v;
+      nova.has_list = true;
+    } else if (k[2] == L"cursor") {
+      nova.cursor = v;
+      nova.has_cursor = true;
+    } else if (k[2] == L"qp_raw") {
+      nova.qp_raw = v;
+      nova.has_raw = true;
+    } else if (k[2] == L"qp_map") {
+      nova.qp_map = v;
+      nova.has_map = true;
+    }
+    return;
+  }
 }
 
 void ContextUpdater::_StoreText(Text& target,

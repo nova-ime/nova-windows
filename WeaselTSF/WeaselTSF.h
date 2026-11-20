@@ -123,6 +123,12 @@ class WeaselTSF : public ITfTextInputProcessorEx,
   void _SetComposition(com_ptr<ITfComposition> pComposition);
   void _SetCompositionPosition(const RECT& rc);
   BOOL _UpdateCompositionWindow(com_ptr<ITfContext> pContext);
+  // Nova: with inline preedit the panel stays at the caret where this input
+  // started (the start of the composition) until the input is committed or
+  // cleared; the next input takes the new caret. Same as macOS.
+  bool _inlinePreedit = false;
+  bool _inputRcSet = false;
+  RECT _inputRc{};
   // Publish UI data after the composition position has been updated.
   void _FlushPendingUI();
   void _FinalizeComposition();
@@ -152,6 +158,7 @@ class WeaselTSF : public ITfTextInputProcessorEx,
   BOOL _InitDisplayAttributeGuidAtom();
 
   com_ptr<ITfThreadMgr> _GetThreadMgr() { return _pThreadMgr; }
+  void HandleNovaAction(int kind, int value);
   void HandleUICallback(size_t* const sel,
                         size_t* const hov,
                         bool* const next,

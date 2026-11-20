@@ -64,6 +64,7 @@ void WeaselTSF::_StartComposition(com_ptr<ITfContext> pContext,
   com_ptr<CStartCompositionEditSession> pStartCompositionEditSession;
   pStartCompositionEditSession.Attach(
       new CStartCompositionEditSession(this, pContext, fCUASWorkaroundEnabled));
+  _inputRcSet = false;
   _cand->StartUI();
   if (pStartCompositionEditSession != nullptr) {
     HRESULT hr;
@@ -172,6 +173,12 @@ STDMETHODIMP CGetTextExtentEditSession::DoEditSession(TfEditCookie ec) {
                                      &nSelection)))
     return E_FAIL;
 
+  const bool fixed = _pComposition != nullptr && _pTextService->_inlinePreedit;
+  if (fixed && _pTextService->_inputRcSet) {
+    // Nova: keep the position taken when this input started.
+    _pTextService->_SetCompositionPosition(_pTextService->_inputRc);
+    return S_OK;
+  }
   if (_pComposition != nullptr && _pComposition->GetRange(&pRange) == S_OK) {
     pRange->Collapse(ec, TF_ANCHOR_START);
   } else {
@@ -203,6 +210,10 @@ STDMETHODIMP CGetTextExtentEditSession::DoEditSession(TfEditCookie ec) {
         rc.top += offsety;
         rc.bottom += offsety;
       }
+    }
+    if (fixed) {
+      _pTextService->_inputRc = rc;
+      _pTextService->_inputRcSet = true;
     }
     _pTextService->_SetCompositionPosition(rc);
   }

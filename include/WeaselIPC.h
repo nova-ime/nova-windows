@@ -32,6 +32,8 @@ enum WEASEL_IPC_COMMAND {
   WEASEL_IPC_SELECT_CANDIDATE_ON_CURRENT_PAGE,
   WEASEL_IPC_HIGHLIGHT_CANDIDATE_ON_CURRENT_PAGE,
   WEASEL_IPC_CHANGE_PAGE,
+  // Nova panel actions: wParam = (kind << 24) | value, see NovaActionKind.
+  WEASEL_IPC_NOVA_ACTION,
   WEASEL_IPC_LAST_COMMAND
 };
 
@@ -40,6 +42,15 @@ enum WEASEL_IPC_COMMAND {
 #define WM_WEASEL_SERVICE_NOTIFY (WEASEL_IPC_LAST_COMMAND + 200)
 
 namespace weasel {
+// Same numbering as NovaUIActionKind (nova-ui), plus paging.
+enum NovaActionKind {
+  NOVA_ACT_SELECT = 0,  // select candidate `value` on the current page (0-based)
+  NOVA_ACT_PIN = 1,     // pin alternative `value` (1-based, same as digit key)
+  NOVA_ACT_FOCUS = 2,   // unused on the wire (client maps it to CURSOR)
+  NOVA_ACT_CURSOR = 3,  // move raw-letter cursor before letter `value`
+  NOVA_ACT_PAGE = 4     // value 1 = page up, 0 = page down
+};
+
 struct PipeMessage {
   WEASEL_IPC_COMMAND Msg;
   DWORD wParam;
@@ -76,6 +87,9 @@ struct RequestHandler {
     return false;
   }
   virtual bool ChangePage(bool backward, DWORD session_id, EatLine eat) {
+    return false;
+  }
+  virtual bool NovaAction(int kind, int value, DWORD session_id, EatLine eat) {
     return false;
   }
   virtual void FocusIn(DWORD param, DWORD session_id) {}
@@ -136,6 +150,8 @@ class Client {
   bool HighlightCandidateOnCurrentPage(size_t index);
   // 翻页，backward = true 向前翻，false向后翻
   bool ChangePage(bool backward);
+  // Nova 面板动作，kind 见 NovaActionKind
+  bool NovaAction(int kind, int value);
   // 更新输入位置
   void UpdateInputPosition(RECT const& rc);
   // 输入窗口获得焦点

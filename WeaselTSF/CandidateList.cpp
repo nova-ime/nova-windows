@@ -306,6 +306,10 @@ void CCandidateList::StartUI() {
                               bool* const next, bool* const scroll_next) {
       _tsf->HandleUICallback(sel, hov, next, scroll_next);
     });
+  if (!_ui->novaCallback())
+    _ui->novaCallback() = [this](int kind, int value) {
+      _tsf->HandleNovaAction(kind, value);
+    };
   if (FAILED(pUIElementMgr->BeginUIElement(this, &_pbShow, &uiid)))
     return;
   _uiStarted = true;
@@ -443,6 +447,15 @@ void WeaselTSF::_HandleMouseHoverEvent(const size_t index) {
     m_client.HighlightCandidateOnCurrentPage(index);
     _UpdateComposition(_pEditSessionContext);
   }
+}
+
+void WeaselTSF::HandleNovaAction(int kind, int value) {
+  if (kind == weasel::NOVA_ACT_SELECT) {
+    _SelectCandidateOnCurrentPage((size_t)value);
+    return;
+  }
+  m_client.NovaAction(kind, value);
+  _UpdateComposition(_pEditSessionContext);
 }
 
 void WeaselTSF::HandleUICallback(size_t* const sel,

@@ -120,16 +120,35 @@ struct CandidateInfo {
   std::vector<Text> labels;
 };
 
+// Nova: raw rime properties that the Nova candidate panel needs (nova-ui).
+// Sent by the server as ctx.nova.* lines; `on` means the Nova schema is active.
+struct NovaData {
+  bool on = false;
+  bool has_tree = false, has_list = false, has_cursor = false, has_raw = false,
+       has_map = false;
+  std::wstring input, tree, list, cursor, qp_raw, qp_map;
+  void clear() { *this = NovaData(); }
+  bool operator==(const NovaData& o) const {
+    return on == o.on && has_tree == o.has_tree && has_list == o.has_list &&
+           has_cursor == o.has_cursor && has_raw == o.has_raw &&
+           has_map == o.has_map && input == o.input && tree == o.tree &&
+           list == o.list && cursor == o.cursor && qp_raw == o.qp_raw &&
+           qp_map == o.qp_map;
+  }
+};
+
 struct Context {
   Context() {}
   void clear() {
     preedit.clear();
     aux.clear();
     cinfo.clear();
+    nova.clear();
   }
   bool empty() const { return preedit.empty() && aux.empty() && cinfo.empty(); }
   bool operator==(const Context& ctx) const {
-    if (preedit == ctx.preedit && aux == ctx.aux && cinfo == ctx.cinfo)
+    if (preedit == ctx.preedit && aux == ctx.aux && cinfo == ctx.cinfo &&
+        nova == ctx.nova)
       return true;
     return false;
   }
@@ -145,6 +164,7 @@ struct Context {
   Text preedit;
   Text aux;
   CandidateInfo cinfo;
+  NovaData nova;
 };
 // for icon type in tip
 enum IconType { SCHEMA, FULL_SHAPE };

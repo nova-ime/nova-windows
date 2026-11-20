@@ -3,6 +3,9 @@
 #include "HorizontalLayout.h"
 #include "VHorizontalLayout.h"
 #include "VerticalLayout.h"
+#include <WeaselIPC.h>
+#include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <memory>
 #include <resource.h>
@@ -83,6 +86,7 @@ WeaselPanel::WeaselPanel(UI& ui)
       m_in_server(ui.InServer()),
       m_style(ui.style()),
       m_uiCallback(ui.uiCallback()),
+      m_novaCallback(ui.novaCallback()),
       m_ostyle(ui.ostyle()),
       m_candidateCount(0),
       m_lastCandidateCount(0),
@@ -184,6 +188,23 @@ void WeaselPanel::ReleaseAllResources() {
 }
 
 void WeaselPanel::MoveTo(RECT rc) {
+  if (m_hWnd && m_nova_active) {
+    // The Nova panel stays where it was anchored for the whole composition.
+    // A hidden panel means the last composition is over (the client may hide
+    // it on commit without sending an empty context), so take the new caret.
+    // The TSF side reports the start of the composition, which only moves when
+    // a new composition starts elsewhere or the text reflows: follow it then.
+    const bool moved = abs(rc.left - m_inputPos.left) > 4 ||
+                       abs(rc.top - m_inputPos.top) > 4;
+    if (!::IsWindowVisible(m_hWnd) || moved)
+      m_nova_anchored = false;
+    if (!m_nova_anchored) {
+      m_inputPos = rc;
+      m_inputPos.bottom += 6;
+      Refresh();
+    }
+    return;
+  }
   if (!m_hWnd || !m_layout)
     return;
   m_redraw_by_monitor_change = false;
@@ -225,7 +246,10 @@ void WeaselPanel::MoveTo(RECT rc) {
 }
 
 void WeaselPanel::_ResizeWindow() {
-  const CSize& size = m_layout->GetContentSize();
+  _ResizeWindowTo(m_layout->GetContentSize());
+}
+
+void WeaselPanel::_ResizeWindowTo(const CSize& size) {
   RECT client_rect{};
   GetClientRect(m_hWnd, &client_rect);
   const int client_width = client_rect.right - client_rect.left;
@@ -317,9 +341,24 @@ void WeaselPanel::Refresh() {
     if (m_pD2D->swapChain)  // only reinit window resources if attached
       m_pD2D->InitDirect2D();
   }
+  if (_NovaWanted()) {
+    _RefreshNova();
+    return;
+  }
+  m_nova_active = false;
+  m_nova_anchored = false;
+  m_nova_hover = m_nova_pressed = -1;
+  m_nova.Reset();
   _CreateLayout();
   m_layout->DoLayout();
-  _ResizeWindow();
+  if (hide_candidates && m_style.inline_preedit && !m_preview_mode) {
+    // Nothing is drawn (inline preedit, no candidates yet, e.g. after the
+    // first letter). Keep the window at 1x1 so an old frame of the panel
+    // cannot show through as a small dark blob.
+    _ResizeWindowTo(CSize(1, 1));
+  } else {
+    _ResizeWindow();
+  }
   if (m_preview_mode) {
     if (!m_preview_positioned && !m_preview_detached)
       RepositionPreview();
@@ -327,6 +366,118 @@ void WeaselPanel::Refresh() {
     _Reposition();
   }
   RedrawWindow();
+}
+
+bool WeaselPanel::_NovaWanted() const {
+  return !m_preview_mode && m_ctx.nova.on && m_status.composing &&
+         m_ctx.aux.empty() && (!m_ctx.preedit.empty() || !m_ctx.cinfo.empty());
+}
+
+NovaRenderer::Style WeaselPanel::_NovaStyle() const {
+  NovaRenderer::Style st;
+  st.face = m_style.font_face;
+  const int point = m_style.font_point > 0 ? m_style.font_point : 15;
+  st.font_size = point * 96.0 / 72.0;
+  st.linear = m_style.layout_type == UIStyle::LAYOUT_HORIZONTAL ||
+              m_style.layout_type == UIStyle::LAYOUT_HORIZONTAL_FULLSCREEN;
+  st.show_share = false;
+  st.inline_preedit = m_style.inline_preedit;
+  return st;
+}
+
+void WeaselPanel::_RefreshNova() {
+  const double scale = m_pD2D->m_dpiScaleLayout;
+  RECT work{0, 0, 1920, 1080};
+  if (HMONITOR mon = MonitorFromRect(&m_inputPos, MONITOR_DEFAULTTONEAREST)) {
+    MONITORINFO info;
+    info.cbSize = sizeof(MONITORINFO);
+    if (GetMonitorInfo(mon, &info))
+      work = info.rcWork;
+  }
+  const NovaRenderer::Style style = _NovaStyle();
+  if (!m_nova_anchored) {
+    // Same placement rules as the Mac panel: the tree's left edge sits at the
+    // start of the text; it goes above the caret when the caret is in the
+    // lower third of the screen or the full tree does not fit below.
+    const int margin = (int)std::ceil(8 * scale);
+    const int min_width = (int)std::ceil(480 * scale);
+    int start = m_inputPos.left - (int)std::ceil(nova_ui_edge() * scale);
+    m_nova_left = (std::max<int>)(
+        work.left + margin,
+        (std::min<int>)(start, work.right - min_width - margin));
+    m_nova_max_width = (work.right - margin - m_nova_left) / scale;
+    const int below = m_inputPos.bottom - 4;
+    const bool lower_part =
+        (work.bottom - m_inputPos.bottom) < (work.bottom - work.top) / 3;
+    const bool fits_below =
+        below + (int)std::ceil(NovaRenderer::FullHeight(style) * scale) <=
+        work.bottom;
+    m_nova_upward = lower_part || !fits_below;
+    // Some apps report an empty caret rect first: do not lock the position.
+    const bool have_pos = !(m_inputPos.left == 0 && m_inputPos.top == 0 &&
+                            m_inputPos.right == 0 && m_inputPos.bottom <= 6);
+    m_nova_anchored = have_pos;
+  }
+  m_nova_active = true;
+  m_nova_hover = -1;
+  m_nova_pressed = -1;
+  IDWriteFactory* dwrite = m_pD2D->m_pWriteFactory.Get();
+  const bool shown =
+      m_nova.Build(dwrite, m_ctx, style, m_nova_max_width, m_nova_upward);
+  CSize size(1, 1);
+  if (shown) {
+    size.cx = (std::max<int>)(1, (int)std::ceil(m_nova.width() * scale));
+    size.cy = (std::max<int>)(1, (int)std::ceil(m_nova.height() * scale));
+  }
+  _ResizeWindowTo(size);
+  _NovaReposition();
+  RedrawWindow();
+}
+
+void WeaselPanel::_NovaReposition() {
+  if (!m_hWnd)
+    return;
+  RECT work{0, 0, 1920, 1080};
+  if (HMONITOR mon = MonitorFromRect(&m_inputPos, MONITOR_DEFAULTTONEAREST)) {
+    MONITORINFO info;
+    info.cbSize = sizeof(MONITORINFO);
+    if (GetMonitorInfo(mon, &info))
+      work = info.rcWork;
+  }
+  CRect rcWindow;
+  GetWindowRect(m_hWnd, &rcWindow);
+  int y = m_nova_upward ? m_inputPos.top - 2 - rcWindow.Height()
+                        : m_inputPos.bottom - 4;
+  if (y + rcWindow.Height() > work.bottom)
+    y = work.bottom - rcWindow.Height();
+  if (y < work.top)
+    y = work.top;
+  SetWindowPos(m_hWnd, HWND_TOPMOST, m_nova_left, y, 0, 0,
+               SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOREDRAW);
+}
+
+void WeaselPanel::_NovaPerform(int hit_index) {
+  NovaUIHit hit;
+  if (!m_novaCallback || !m_nova.GetHit(hit_index, &hit))
+    return;
+  switch (hit.action) {
+    case NOVA_ACTION_SELECT:
+      m_novaCallback(NOVA_ACT_SELECT, hit.value);
+      break;
+    case NOVA_ACTION_PIN:
+      m_novaCallback(NOVA_ACT_PIN, hit.value);
+      break;
+    case NOVA_ACTION_FOCUS: {
+      // click on a word block: cursor goes to the end of that block
+      int end = m_nova.BlockEnd(hit.value);
+      if (end >= 0)
+        m_novaCallback(NOVA_ACT_CURSOR, end);
+      break;
+    }
+    default:
+      m_novaCallback(NOVA_ACT_CURSOR, hit.value);
+      break;
+  }
 }
 
 void WeaselPanel::RepositionPreview() {
@@ -421,7 +572,8 @@ void WeaselPanel::_UpdateOffsetY(CRect& arc, CRect& prc) {
 }
 
 void WeaselPanel::DoPaint() {
-  if (!m_pD2D || !m_layout || !m_pD2D->dc || !m_pD2D->swapChain)
+  if (!m_pD2D || (!m_layout && !m_nova_active) || !m_pD2D->dc ||
+      !m_pD2D->swapChain)
     return;
   auto hr = m_pD2D->direct3dDevice
                 ? m_pD2D->direct3dDevice->GetDeviceRemovedReason()
@@ -434,7 +586,9 @@ void WeaselPanel::DoPaint() {
   }
   m_pD2D->dc->BeginDraw();
   m_pD2D->dc->Clear(D2D1::ColorF({0.0f, 0.0f, 0.0f, 0.0f}));
-  if (!hide_candidates) {
+  if (m_nova_active) {
+    m_nova.Paint(m_pD2D->dc.Get(), m_pD2D->m_dpiScaleLayout, m_nova_hover);
+  } else if (!hide_candidates) {
     const bool should_draw_background =
         ((!m_ctx.empty() && !m_style.inline_preedit) ||
          (m_style.inline_preedit && (m_candidateCount || !m_ctx.aux.empty())));
@@ -938,6 +1092,10 @@ void WeaselPanel::OnDestroy() {
     ReleaseCapture();
 
   m_hoverIndex = -1;
+  m_nova_active = false;
+  m_nova_anchored = false;
+  m_nova_hover = m_nova_pressed = -1;
+  m_nova.Reset();
   m_layout.reset();
   // The next HWND starts with a small placeholder size.
   m_lastWindowWidth = -1;
@@ -950,6 +1108,17 @@ HRESULT WeaselPanel::OnScroll(UINT uMsg, WPARAM wParam, LPARAM lParam) {
   if (m_preview_mode)
     return 0;
   int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+  if (m_nova_active) {
+    // one page per wheel notch (120), like PageUp / PageDown
+    if ((m_nova_scroll > 0) != (delta > 0))
+      m_nova_scroll = 0;
+    m_nova_scroll += delta;
+    if (std::abs(m_nova_scroll) >= WHEEL_DELTA && m_novaCallback) {
+      m_novaCallback(NOVA_ACT_PAGE, m_nova_scroll > 0 ? 1 : 0);
+      m_nova_scroll = 0;
+    }
+    return 0;
+  }
   if (m_uiCallback && delta != 0) {
     bool scroll_down = delta < 0;
     m_uiCallback(NULL, NULL, NULL, &scroll_down);
@@ -967,6 +1136,20 @@ LRESULT WeaselPanel::OnMouseMove(UINT uMsg, WPARAM wParam, LPARAM lParam) {
       SetWindowPos(m_hWnd, nullptr, m_drag_window.left + dx,
                    m_drag_window.top + dy, 0, 0,
                    SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOZORDER);
+    }
+    return 0;
+  }
+  if (m_nova_active) {
+    if (!m_nova_tracking) {
+      TRACKMOUSEEVENT tme{sizeof(tme), TME_LEAVE, m_hWnd, 0};
+      m_nova_tracking = !!TrackMouseEvent(&tme);
+    }
+    const double scale = m_pD2D->m_dpiScaleLayout;
+    int idx = m_nova.HitTest(GET_X_LPARAM(lParam) / scale,
+                             GET_Y_LPARAM(lParam) / scale);
+    if (idx != m_nova_hover) {
+      m_nova_hover = idx;
+      RedrawWindow();
     }
     return 0;
   }
@@ -1033,6 +1216,16 @@ LRESULT WeaselPanel::OnLeftClickUp(UINT uMsg, WPARAM wParam, LPARAM lParam) {
     }
     return 0;
   }
+  if (m_nova_active) {
+    const double scale = m_pD2D->m_dpiScaleLayout;
+    int idx = m_nova.HitTest(GET_X_LPARAM(lParam) / scale,
+                             GET_Y_LPARAM(lParam) / scale);
+    int pressed = m_nova_pressed;
+    m_nova_pressed = -1;
+    if (idx >= 0 && idx == pressed)
+      _NovaPerform(idx);
+    return 0;
+  }
   if (hide_candidates || m_candidateCount <= 0)
     return 0;
   const int highlighted = (m_ctx.cinfo.highlighted >= 0 &&
@@ -1068,6 +1261,12 @@ LRESULT WeaselPanel::OnLeftClickDown(UINT uMsg, WPARAM wParam, LPARAM lParam) {
     m_dragging = true;
     m_preview_detached = true;
     SetCapture(m_hWnd);
+    return 0;
+  }
+  if (m_nova_active) {
+    const double scale = m_pD2D->m_dpiScaleLayout;
+    m_nova_pressed = m_nova.HitTest(GET_X_LPARAM(lParam) / scale,
+                                    GET_Y_LPARAM(lParam) / scale);
     return 0;
   }
   if (hide_candidates || m_candidateCount <= 0)
@@ -1193,6 +1392,13 @@ LRESULT WeaselPanel::MsgHandler(HWND hwnd,
       return DefWindowProc(hwnd, uMsg, wParam, lParam);
     case WM_MOUSEMOVE:
       OnMouseMove(uMsg, wParam, lParam);
+      break;
+    case WM_MOUSELEAVE:
+      m_nova_tracking = false;
+      if (m_nova_active && m_nova_hover != -1) {
+        m_nova_hover = -1;
+        RedrawWindow();
+      }
       break;
     case WM_MOUSEACTIVATE:
       return OnMouseActive(uMsg, wParam, lParam);

@@ -103,6 +103,15 @@ bool ClientImpl::ChangePage(bool backward) {
   return ret != 0;
 }
 
+bool ClientImpl::NovaAction(int kind, int value) {
+  if (!_Active())
+    return false;
+  LRESULT ret = _SendMessage(
+      WEASEL_IPC_NOVA_ACTION,
+      ((DWORD)(kind & 0xff) << 24) | ((DWORD)value & 0xffffff), session_id);
+  return ret != 0;
+}
+
 void ClientImpl::UpdateInputPosition(RECT const& rc) {
   if (!_Active())
     return;
@@ -242,6 +251,10 @@ bool Client::HighlightCandidateOnCurrentPage(size_t index) {
 
 bool Client::ChangePage(bool backward) {
   return m_pImpl->ChangePage(backward);
+}
+
+bool Client::NovaAction(int kind, int value) {
+  return m_pImpl->NovaAction(kind, value);
 }
 
 void Client::UpdateInputPosition(RECT const& rc) {

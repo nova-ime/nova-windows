@@ -22,6 +22,7 @@ STDMETHODIMP WeaselTSF::DoEditSession(TfEditCookie ec) {
     _hasPendingUI = true;
   }
   if (ok) {
+    _inlinePreedit = config.inline_preedit;
     compositionEnded = false;
     if (!commit.empty()) {
       // For auto-selecting, commit and preedit can both exist.

@@ -17,6 +17,9 @@ typedef std::function<
     void(size_t* const, size_t* const, bool* const, bool* const)>
     UICallbackFunc;
 
+// Nova panel action (kind = NovaActionKind in WeaselIPC.h, value as there).
+typedef std::function<void(int, int)> NovaActionFunc;
+
 enum ClientCapabilities {
   INLINE_PREEDIT_CAPABLE = 1,
 };
@@ -53,6 +56,7 @@ class UI {
   // compatibility shim for existing call sites
   void SetUICallBack(const UICallbackFunc& func) { _uiCallback = func; }
   void SetCallback(const UICallbackFunc& func) { _uiCallback = func; }
+  NovaActionFunc& novaCallback() { return _novaCallback; }
   bool& InServer() { return in_server_; }
   HWND hwnd();
 
@@ -64,5 +68,6 @@ class UI {
   UIStyle ostyle_;
   bool in_server_;
   UICallbackFunc _uiCallback;
+  NovaActionFunc _novaCallback;
 };
 }  // namespace weasel
