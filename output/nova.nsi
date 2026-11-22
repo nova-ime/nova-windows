@@ -14,7 +14,7 @@
 Unicode true
 
 !ifndef NOVA_VERSION
-!define NOVA_VERSION 1.0.1
+!define NOVA_VERSION 1.0.2
 !endif
 
 !define NOVA_ROOT "$INSTDIR\nova-${NOVA_VERSION}"
@@ -177,7 +177,7 @@ Section "Nova"
   File "WeaselSetup.exe"
   File "WeaselLanguageProfile.ps1"
   File "rime.dll"
-  File "WinSparkle.dll"
+  Delete "$INSTDIR\WinSparkle.dll"  ; 1.0.2 起不再自动更新
 
   SetOutPath $INSTDIR\data
   File /r "nova-data\*.*"

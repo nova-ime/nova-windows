@@ -22,17 +22,8 @@ int WeaselServerApp::Run() {
   }
   LOG(INFO) << "IPC server window started";
 
-  // win_sparkle_set_appcast_url("http://localhost:8000/weasel/update/appcast.xml");
-  win_sparkle_set_registry_path("Software\\Rime\\Weasel\\Updates");
-  if (GetThreadUILanguage() ==
-      MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_TRADITIONAL))
-    win_sparkle_set_lang("zh-TW");
-  else if (GetThreadUILanguage() ==
-           MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED))
-    win_sparkle_set_lang("zh-CN");
-  else
-    win_sparkle_set_lang("en");
-  win_sparkle_init();
+  // Nova: no auto-update. WinSparkle pointed at the upstream Weasel feed,
+  // which would offer to replace Nova with Weasel and made the IME go online.
   LOG(INFO) << "creating candidate UI";
   if (!m_ui.Create(m_server.GetHWnd())) {
     LOG(ERROR) << "failed to create candidate UI";
@@ -61,7 +52,6 @@ int WeaselServerApp::Run() {
   m_handler->Finalize();
   m_ui.Destroy();
   tray_icon.RemoveIcon();
-  win_sparkle_cleanup();
 
   return ret;
 }
