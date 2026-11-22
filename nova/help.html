@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nova 使用说明</title>
+<style>
+  :root { --bg: #fff; --fg: #1d1d1f; --dim: #6e6e73; --line: #e5e5ea; --key: #f2f2f7; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1c1c1e; --fg: #f2f2f7; --dim: #a1a1a6; --line: #38383a; --key: #2c2c2e; }
+  }
+  body { background: var(--bg); color: var(--fg); font: 15px/1.6 "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+         max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 28px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  p.lead { color: var(--dim); margin: 0 0 8px; }
+  table { border-collapse: collapse; width: 100%; }
+  td { padding: 6px 0; vertical-align: top; border-bottom: 1px solid var(--line); }
+  td:first-child { width: 150px; color: var(--dim); padding-right: 12px; }
+  kbd { background: var(--key); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font: 13px Consolas, monospace; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; }
+</style>
+</head>
+<body>
+<h1>Nova 使用说明</h1>
+<p class="lead">托盘或语言栏的 Nova 图标上点右键：换输入方式、开关全角和英文标点、打开设置文件夹。</p>
+
+<h2>打字</h2>
+<table>
+<tr><td>整句</td><td>连着打，空格整句上屏。输入框里是首选整句，候选面板里是原始字母。</td></tr>
+<tr><td>没打完的字母</td><td>末尾没打完的音节不参与解码，前面的词不会跟着闪。</td></tr>
+<tr><td>中英切换</td><td>单按 <kbd>Shift</kbd>。以大写字母开头直接打英文。</td></tr>
+<tr><td>邮箱、网址</td><td>照常打 abc@qq.com、www.x.cn，整段原样上屏。</td></tr>
+</table>
+
+<h2>改错</h2>
+<table>
+<tr><td>橙色、紫色的词</td><td>系统没把握，下面列出备选，直接按数字改；<kbd>;</kbd> 等于 1。</td></tr>
+<tr><td>移到某个词</td><td><kbd>←</kbd>/<kbd>→</kbd> 逐个字母，<kbd>Tab</kbd> 往后跳一个词，<kbd>Shift</kbd>+<kbd>Tab</kbd> 往前。焦点词是黄底。</td></tr>
+<tr><td>换焦点词</td><td><kbd>↓</kbd>/<kbd>↑</kbd> 换成下一个、上一个备选；<kbd>-</kbd>/<kbd>=</kbd> 或滚轮翻页。</td></tr>
+<tr><td>切分错了</td><td>焦点词上按 <kbd>[</kbd> 让出最后一个字给右边，按 <kbd>]</kbd> 把右边第一个字并进来。</td></tr>
+<tr><td>打错键</td><td>编码不成立时，卡住的那段显示成橙色字母，备选是改一个键后的写法。</td></tr>
+<tr><td>删掉学错的词</td><td>焦点词上按 <kbd>Shift</kbd>+<kbd>Delete</kbd> 或 <kbd>Ctrl</kbd>+<kbd>K</kbd>。</td></tr>
+</table>
+
+<h2>快捷输入</h2>
+<table>
+<tr><td>日期、时间、星期</td><td><kbd>orq</kbd>、<kbd>osj</kbd>、<kbd>oxq</kbd></td></tr>
+<tr><td>表情</td><td><kbd>obq</kbd></td></tr>
+<tr><td>符号</td><td>o 加类别名，如 <kbd>ofh</kbd>、<kbd>osx</kbd>、<kbd>ojt</kbd>；也可以打 <kbd>/fh</kbd>、<kbd>/sx</kbd>。</td></tr>
+<tr><td>辅助码</td><td>音节后面打大写字母（自然码形码），筛同音字。</td></tr>
+</table>
+
+<h2>颜色</h2>
+<table>
+<tr><td><span class="swatch" style="background:#2f6fde"></span>蓝</td><td>有把握</td></tr>
+<tr><td><span class="swatch" style="background:#d26624"></span>橙</td><td>没把握，下面列出备选</td></tr>
+<tr><td><span class="swatch" style="background:#7b48d8"></span>紫</td><td>整句里选了一个词频更低的词，值得看一眼</td></tr>
+<tr><td><span class="swatch" style="background:#1f9d6b"></span>绿</td><td>你选过的词，还能再改</td></tr>
+<tr><td><span class="swatch" style="background:#f5c518"></span>黄底</td><td>当前焦点</td></tr>
+</table>
+
+<h2>高级设置</h2>
+<table>
+<tr><td>设置文件夹</td><td>右键菜单 →「打开设置文件夹」。在里面新建 <code>nova.custom.yaml</code> 可以覆盖方案的任何设置，<code>weasel.custom.yaml</code> 改候选面板的外观。</td></tr>
+<tr><td>生效</td><td>改完点右键菜单里的「重新加载设置」。</td></tr>
+</table>
+</body>
+</html>

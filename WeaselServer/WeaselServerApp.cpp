@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "WeaselServerApp.h"
 #include <filesystem>
+#include <NovaOptions.h>
 
 WeaselServerApp::WeaselServerApp()
     : m_handler(std::make_unique<RimeWithWeaselHandler>(&m_ui)),
@@ -93,4 +94,19 @@ void WeaselServerApp::SetupMenuHandlers() {
                           std::bind(explore, WeaselUserDataPath()));
   m_server.AddMenuHandler(ID_WEASELTRAY_LOGDIR,
                           std::bind(explore, WeaselLogPath()));
+  // Nova：输入方式、两个开关存进注册表，下一次按键时设给所有会话。
+  for (const auto& l : nova::kLayouts)
+    m_server.AddMenuHandler(l.menu_id, [this, id = l.menu_id] {
+      nova::handle_menu(id);
+      m_handler->NovaOptionsChanged();
+      return true;
+    });
+  for (const auto& t : nova::kToggles)
+    m_server.AddMenuHandler(t.menu_id, [this, id = t.menu_id] {
+      nova::handle_menu(id);
+      m_handler->NovaOptionsChanged();
+      return true;
+    });
+  m_server.AddMenuHandler(ID_NOVA_HELP,
+                          std::bind(open, (dir / L"data" / L"help.html").wstring()));
 }

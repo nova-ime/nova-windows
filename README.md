@@ -1,117 +1,248 @@
-﻿【小狼毫】輸入法
-================
+# Nova 输入法（Windows）
 
-基於 中州韻輸入法引擎／Rime Input Method Engine 等開源技術
+[![Release](https://img.shields.io/github/v/release/nova-ime/nova-windows)](https://github.com/nova-ime/nova-windows/releases/latest)
+![Platform](https://img.shields.io/badge/Windows-10%20%7C%2011%20x64-lightgrey)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE.txt)
 
-式恕堂 版權所無
+整句一次打对，打错了按一两个键就能改。
 
-[![Download](https://img.shields.io/github/v/release/rime/weasel)](https://github.com/rime/weasel/releases/latest)
-[![Build status](https://github.com/rime/weasel/actions/workflows/commit-ci.yml/badge.svg)](https://github.com/rime/weasel/actions/workflows/commit-ci.yml)
-[![GitHub Tag](https://img.shields.io/github/tag/rime/weasel.svg)](https://github.com/rime/weasel)
+Nova 是一个本地运行的中文整句输入法。它在 [Rime](https://rime.im) 引擎上加了一个约 1 亿参数的 GPT-2 中文模型，每按一个键，由模型给整句候选重新打分。模型在本机运行，不联网。
 
-授權條款：GPLv3
+本仓库是 Windows 版，从[小狼毫](https://github.com/rime/weasel)分叉而来。macOS 版在 [nova-macos](https://github.com/nova-ime/nova-macos)。两边的输入方案、词库和模型是同一套。
 
-項目主頁：https://rime.im
+**成绩**（详见[测试结果](#测试结果)）：
+- 26 个领域的 6486 句，逐键输入，整句全对 80.6%，万象拼音是 61.0%。
+- 水杉输入法公开的 ctx-v1 测试集上 96.0%，高于水杉报告里的所有模型，包括 Qwen3.5-2B。
 
-您可能還需要 RIME 用於其他操作系統的發行版：
+- [安装](#安装)
+- [使用](#使用)
+- [定制](#定制)
+- [测试结果](#测试结果)
+- [从源码构建](#从源码构建)
+- [限制](#限制)
+- [致谢](#致谢)
 
-  * ibus-rime、fcitx5-rime 或 fcitx-rime 用於 Linux
-  * 【鼠鬚管】用於 macOS （64位）
+## 安装
 
-安裝輸入法
-----------
+要求 64 位（x64）的 Windows 10 或 11。
 
-本品適用於 Windows 8.1 ~ Windows 11
+1. 到 [Releases](https://github.com/nova-ime/nova-windows/releases/latest) 下载 `Nova-<版本>-installer.exe`，约 150 MB。
+2. 双击运行。安装包没有代码签名，Windows 会弹出 SmartScreen 警告：点「更多信息」，再点「仍要运行」。
+3. 按安装向导走，其中一页让你选打法：
+   - 自然码双拼
+   - 小鹤双拼
+   - 微软双拼
+   - 搜狗双拼
+   - 全拼
 
-初次安裝時，安裝程序將顯示「安裝選項」對話框。
+   以后随时可以在托盘菜单里换。
+4. 装好后，在任务栏的输入法列表里选「Nova」。
 
-若要將【小狼毫】註冊到繁體中文（臺灣）鍵盤佈局，請在「輸入語言」欄選擇「中文（臺灣）」，再點擊「安裝」按鈕。
+   如果列表里没有 Nova，或者切过去打不出字，注销重新登录一次。
 
-安裝完成後，仍可由開始菜單打開「安裝選項」更改輸入語言。
+如果装过小狼毫，安装程序会先把它移除。`%APPDATA%\Rime` 里的用户词库和设置文件保留不动，Nova 继续使用这个目录。
 
-使用輸入法
-----------
+升级时直接运行新版本的安装包即可。
 
-選取輸入法指示器菜單裏的【中】字樣圖標，開始用小狼毫寫字。
+**卸载**：在「设置 → 应用」里找到 Nova 卸载。用户目录 `%APPDATA%\Rime` 不会自动删除。
 
-可通過快捷鍵 <kbd>Ctrl+`</kbd> 或 <kbd>F4</kbd> 呼出方案選單、切換輸入方式。
+## 使用
 
-定製輸入法
-----------
+整句连着打，按空格整句上屏。单按 Shift 切换中英文。
 
-通過 開始菜單 » 小狼毫輸入法 訪問設定工具及常用位置。
+在托盘或语言栏的 Nova 图标上点右键，可以：
+- 切换五种打法
+- 开关「全角字符」「中文状态下用英文标点」
+- 打开「使用说明」
+- 「打开设置文件夹」「重新加载设置」
 
-用戶詞庫、配置文件位於 `%AppData%\Rime`，可通過菜單中的「用戶文件夾」打開。高水平玩家調教 Rime 輸入法常會用到。
+### 和普通整句输入法不同的地方
 
-修改詞庫、配置文件後，須「重新部署」方可生效。
+- **选过的词不再变。** 没选过的词会随后面的字重新解码，比如前面打出的「无党」，打完后面的字之后可能改成「武当」。你按数字选过的词，后面的字就不会再改它。
+- **没打完的字母不参与解码。** 打 `nih` 时，末尾的 `h` 不会让前面的词跳来跳去。按空格只上屏前面完整的部分，`h` 留下继续打。
+- **改错不用退格。** 系统没把握的词标成橙色，下面直接列出备选，按数字就能改。改了一个词，前面的词保持不动，后面的词会带着新选的字重新解码。
+- **光标能停在任意字母上。** 候选面板里显示原始字母，`←` `→` 移动光标。可以只改词里的一个字，也可以在中间增删字母。
 
-定製 Rime 的方法，請參考 Wiki [《定製指南》](https://github.com/rime/home/wiki/CustomizationGuide)。如需定製 Weasel 獨有的樣式和行為，請參考本倉庫 [Wiki 頁面](https://github.com/rime/weasel/wiki)。
+### 颜色
 
-致謝
-----
+| 颜色 | 含义 |
+|---|---|
+| 蓝 | 有把握 |
+| 橙 | 没把握，下面列出备选 |
+| 紫 | 整句里选了一个词频更低的词，值得看一眼 |
+| 绿 | 你选过的词，还能再改 |
+| 黄底 | 当前焦点 |
 
-### 輸入方案設計：
+### 按键
 
-  * 【朙月拼音】系列及【八股文】詞典
-    - 部分數據來源於 CC-CEDICT、Android 拼音、新酷音、opencc 等開源項目
-    - 維護者：佛振、瑾昀
-  * 【注音／地球拼音】
-    - 維護者：佛振、瑾昀
-  * 【倉頡五代】
-    - 發明人：朱邦復先生
-    - 碼表源自 www.chinesecj.com
-    - 構詞碼表作者：惜緣
+| 操作 | 按键 | 说明 |
+|---|---|---|
+| 上屏 | 空格 | 不管光标在哪，整句上屏 |
+| 改没把握的词（橙色、紫色） | 数字键；`;` 等于 `1` | 前面的词不变，后面的词重新解码 |
+| 移到某个词 | `←` `→` 逐个字母；Tab、Shift+Tab 逐个词 | 焦点词是黄底 |
+| 换掉焦点词 | `↓` `↑` | 换成下一个、上一个备选 |
+| 翻备选 | `-` `=`、`,` `.` 或滚轮 | 每页 6 个，最多 36 个 |
+| 只改词里的一个字 | 光标停在那个字的字母上 | 备选先列这个字的同音字：太极 → 太机，「太」不动 |
+| 切分错了 | 焦点词上按 `[` 或 `]` | `[` 把最后一个字让给右边的词：和尚｜未 → 和｜尚未。`]` 把右边的第一个字并进来：刘｜荣 → 刘荣。改过的切分会被记住，下次打到同样的字母直接这样切 |
+| 改字母 | 光标停在中间时打字、退格、Delete | 只重新解码改动的地方 |
+| 回到句尾 | End，或在最后一个词上再按 Tab | |
+| 删掉学错的词 | 焦点词上按 Shift+Delete 或 Ctrl+K | 从用户词库里删掉。词库自带的词删不掉，只是取消学到的优先 |
+| 辅助码 | 音节后打大写字母 | 用自然码形码筛同音字，五种打法都一样 |
+| 日期、时间、星期 | `orq`、`osj`、`oxq` | 列出几种写法，按数字或空格选 |
+| 表情 | `obq` | 列出 emoji |
+| 符号 | `o` 加类别名，如 `ofh`、`osx`、`ojt`；或 `/fh`、`/sx` | |
+| 邮箱、网址 | 照常打 `abc@qq.com`、`www.x.cn` | 整段原样上屏 |
+| 自定义短语 | 打短语的编码 | 写在设置文件夹的 `nova_phrases.txt`，每行 `文字<Tab>编码`，改了直接生效 |
 
-  【五笔】【粵拼】【上海／蘇州吳語】【中古漢語拼音】【國際音標】等衆多方案
-  不再以安裝包預裝形式提供。可由 <https://github.com/rime/plum> 下載安裝。
+### 打错键
 
-### 程序設計：
+- **双拼**：双拼按错一个键，编码会变得不成立。这时前面照常出整句，从卡住处到末尾显示成一段橙色的原样字母，备选是改掉一个键之后的写法（相邻键、两键颠倒）。第一次按空格不上屏，而是把多打、漏打一个键的写法也算出来列上；再按一次空格才原样上屏。
+- **全拼**：打错时自动纠正，包括相邻键、两个字母颠倒、多打或漏打一个字母。正在打的最后一个音节不纠正。
 
-  * [佛振](https://github.com/lotem)
-  * [鄒旭](https://github.com/zouxu09)
-  * [Xiangyan Sun](https://github.com/wishstudio)
-  * [Prcuvu](https://github.com/Prcuvu)
-  * [nameoverflow](https://github.com/nameoverflow)
-  * [fxliang](https://github.com/fxliang)
-  * [Azuk 443](https://github.com/determ1ne)
+### 全拼
 
-  查看更多 [代碼貢獻者](https://github.com/rime/weasel/graphs/contributors)
+- 音节可以只打声母：`wm` 我们、`zgr` 中国人、`nihaoshjie` 你好世界（完整拼音中间的 `shi` 也可以只打 `sh`）。
+- `z` `c` `s` 也可以代表 zh ch sh。
+- 程序切错音节时，用 `'` 隔开：`xi'an`。
+- 全拼和双拼学到的词互通，切换打法不会丢。
 
-### 美術：
+### 微软、搜狗双拼
 
-  * 圖標設計／[Patricivs](https://github.com/Patricivs)
-  * 配色方案／Aben、P1461、Patricivs、skoj、佛振、五磅兔
+这两种打法用 `;` 表示 ing。只有前一个键是没打完的音节时，`;` 才算拼音，其他时候照旧等于 `1`。
 
-### 本品引用了以下開源軟件：
+另外它们用 `o` 作零声母键。打到正好是短语编码的组合时（比如 `obq`），会先闪一下短语候选，再打下一个键就恢复正常。
 
-  * [Boost C++ Libraries](http://www.boost.org/) (Boost Software License)
-  * [curl](https://curl.haxx.se/) (MIT/X derivate license)
-  * [google-glog](https://github.com/google/glog) (BSD 3-Clause License)
-  * [Google Test](https://github.com/google/googletest) (BSD 3-Clause License)
-  * [LevelDB](https://github.com/google/leveldb) (BSD 3-Clause License)
-  * [librime](https://github.com/rime/librime) (BSD 3-Clause License)
-  * [marisa-trie](https://github.com/s-yata/marisa-trie) (BSD 2-Clause License, LGPL 2.1)
-  * [OpenCC / 開放中文轉換](https://github.com/BYVoid/OpenCC) (Apache License 2.0)
-  * [plum](https://github.com/rime/plum) (GNU Lesser General Public License v3.0)
-  * [WinSparkle](https://github.com/vslavik/winsparkle) (MIT License)
-  * [yaml-cpp](https://github.com/jbeder/yaml-cpp) (MIT License)
-  * [7-Zip](https://www.7-zip.org) (GNU LGPLv2.1+ with unRAR restriction)
+### 学习
 
-問題與反饋
-----------
+- 你改过的词会记进用户词库，下次排得更靠前。
+- 用 `]` 并出来的新词，第一次上屏只做记录；同一个词第二次并出来，才写进用户词库。
+- GPT-2 模型本身不随你的输入变化。
 
-發現程序有 bug，請到 GitHub 反饋
-<https://github.com/rime/weasel/issues>
+## 定制
 
-歡迎提交 pull request
-<https://github.com/rime/weasel/pulls>
+一般设置都在托盘菜单里改：打法、全角字符、中文状态下用英文标点。
 
-Rime 輸入法（不限於 Windows 平臺）功能、使用方法與配置相關的問題，請反饋到
-<https://github.com/rime/home/issues>
+高级用户可以在设置文件夹（`%APPDATA%\Rime`，托盘菜单「打开设置文件夹」）里新建 `nova.custom.yaml`，覆盖方案里的任何设置。改完点托盘菜单里的「重新加载设置」。例如：
 
-聯繫方式
---------
+```yaml
+patch:
+  style/show_share: true        # 在词和备选下面显示词频占比
+  style/inline_candidate: false # 输入框里显示字母，而不是首选整句
+  nova_lm/entity: false         # 不把人名、地名合成一个词块
+```
 
-技術交流，歡迎光臨 [Rime 代碼之家](https://github.com/rime/home)，或致信 Rime 開發者 <rimeime@gmail.com>
+其他文件：
+- `nova_phrases.txt`：自定义短语。
+- `weasel.custom.yaml`：候选面板的字体、字号等外观。
 
-謝謝！
+## 测试结果
+
+以下数字在 macOS 上测得。Windows 版用的是同一套方案、词库和模型：在 Windows 上逐键回放 200 句，和 Mac 的输出有 199 句完全一致，剩下 1 句的差别来自浮点误差。
+
+以下评测都是整句一次全对的比例：首选整句和标准答案逐字相同才算对。
+
+### Nova 自己的评测集：6486 句
+
+句子来自新闻、法律、医疗、小说、网页、对话、评论等 26 个领域，没有参与模型训练。测试工具逐个按键回放，和人打字的过程一样。「上文」指同一篇文章里前面的句子，相当于你已经打出来的文字。
+
+| 配置 | 整句全对 |
+|---|---|
+| **Nova（发布版，带上文）** | **80.6%** |
+| Nova（不带上文） | 73.1% |
+| 万象拼音（自然码，带语法模型，默认设置） | 61.0% |
+| 万象拼音（同上，打开上文） | 60.0% |
+| Nova 关掉 GPT-2 | 57.4% |
+
+- 万象也能参考上文：打开 `contextual_suggestions` 后，它把上一次上屏的文字交给语法模型。但万象默认关着这个开关，注释写着「效果一般关闭」。实测打开后反而少对 1 个百分点，所以和 Nova 比的是万象的默认设置。Nova 不带上文时是 73.1%，也比万象高 12 个百分点。
+- 关掉 GPT-2 后 Nova 不如万象，所以领先主要来自 GPT-2 模型。
+- 领先最多的领域是法律、新闻、网页、小说，差距在 28–35 个百分点之间；聊天、评论类领先最少，只有 14–16 个百分点。
+- 万象的语法模型（`.gram`，420 MB）只能让 Nova 再多对 0.6 个百分点，发布版不带它。
+
+### 万象拼音的公开测试集：246 句
+
+用万象公开的句子和打分方法测。拼音一次整串输入，不带上文。
+
+| 配置 | 整句全对 |
+|---|---|
+| **Nova** | **90.2%** |
+| 万象（我们复现，自然码） | 75.2% |
+| 万象（它报告里的数字） | 66.7% |
+| 它报告里的最高分：五笔整句 + 语法模型 | 69.9% |
+
+- 我们复现的万象比它报告里的高 8 个百分点，原因是版本不同：我们用的是万象 pro 18.1.8，它报告测的是更早的版本。
+- 246 句里有 33 句在 GPT-2 的训练语料里出现过，都是「第二天早上」这类常见短语。去掉这 33 句，Nova 是 88.7%。
+
+### 水杉输入法的测试集：ctx-v1
+
+用[水杉输入法](https://github.com/metasequoiaime)公开的 ctx-v1 测试集。题目是从水杉引擎给出的候选里挑一句，和水杉报告用的是同一种测法。共 1631 句，其中 1196 句带上文。
+
+| 模型 | 全部 | 带上文 | 不带上文 |
+|---|---|---|---|
+| **Nova GPT-2（116 MB）** | **96.0%** | 97.2% | **92.4%** |
+| Qwen3.5-2B（4bit） | 95.6% | **97.7%** | 89.7% |
+| Qwen3.5-0.8B | 94.7% | 97.3% | 87.4% |
+| 知意 ML-pumpkin | 92.5% | 94.6% | 86.9% |
+| 含章·知微（青简） | 90.4% | 91.2% | 88.3% |
+| 含章·通变（青简） | 89.3% | 92.1% | 81.4% |
+| 水杉 24.9M | 86.8% | 87.0% | 86.0% |
+| 水杉引擎原序（不重排） | 69.3% | 70.1% | 67.4% |
+
+除 Nova 外，其他数字都来自水杉测试集附带的结果文件。带上文时 Nova 只比 Qwen3.5-2B 低 0.5 个百分点，而那个模型的文件是 Nova 的十几倍。
+
+另外，我们也让 Nova 从按键开始自己出整句，不用水杉给的候选。在同样 1631 句上，Nova 全对 93.1%。如果他/她/它、的/地/得这类单凭拼音分不出的字互换不算错，是 95.9%。
+
+### 水杉在 Nova 评测集上：6486 句
+
+用水杉自己的评测工具 `convert_eval`，在 Nova 的 6486 句上跑，两边都带上文。
+
+| 配置 | 整句全对 |
+|---|---|
+| **Nova** | **80.7%** |
+| 水杉（4.25M + 24.9M 两个模型，桌面版配置） | 48.7% |
+| 水杉（只用 4.25M 模型） | 44.6% |
+
+- 水杉的问题主要在长句：6486 句里只有 58% 的正确答案出现在它的候选中。
+- 只看正确答案在它候选里的那些句子，水杉对 83.4%，Nova 对 92.3%。
+
+### 怎么看这些数字
+
+- **训练语料**：GPT-2 的训练语料和 Nova 评测集来源相近（新闻、小说、网页等）。评测句子没参与训练，但文风相同，Nova 在自己的评测集上占了便宜。在别人的测试集上（万象、水杉），Nova 的总成绩也是最高的。
+- **标准读音**：Nova 评测集的拼音是程序自动标注的，本身有少量错误。这些数字适合用来比较不同配置，不能当绝对正确率。
+- **按键方式**：Nova 评测集用自然码双拼按键。测水杉时，拼音机械转成了全拼，整串一次输入。
+- **没比的**：搜狗、微软拼音等商业输入法没法自动回放，所以没有比。
+
+## 从源码构建
+
+`nova/package.sh` 在 Mac 上运行，一条命令完成整个打包：
+1. 把源码同步到一台装好 Visual Studio 2022 的 Windows 机器，在那里编译 x64 和 Win32 版本。
+2. 取回编好的程序。
+3. 从 nova-macos 编好的 app 里取方案、词库和模型。
+4. 用 Homebrew 的 `makensis` 打出安装包。
+
+那台 Windows 机器的编译环境（boost、librime 和 GPT-2 插件 nova-lm）还没有整理进仓库。
+
+```sh
+NOVA_VERSION=1.0.0 NOVA_WIN_HOST=<Windows 机器地址> nova/package.sh
+```
+
+安装器脚本是 `output/nova.nsi`。小狼毫原来的 `output/install.nsi` 保持原样，Nova 不用它。
+
+## 限制
+
+- 只支持 64 位的 Windows 10 和 11。
+- 安装包没有代码签名，安装时会看到 SmartScreen 警告。
+- 不支持中英混输。打英文要先按 Shift 切换，或者以大写字母开头。
+- 每个词最多 36 个备选。正确的词不在里面时，只能改字母重打。
+- 没选过的词会随后面的字改写；想让某个词定下来，按数字选它一下。
+
+## 致谢
+
+- [Rime / librime](https://github.com/rime/librime)、[小狼毫](https://github.com/rime/weasel)：输入法引擎和 Windows 前端。小狼毫的原作者和贡献者见上游仓库。
+- [万象拼音](https://github.com/amzxyz/rime-wanxiang)（CC-BY-4.0）：词库和自然码辅助码。
+- [uer/gpt2-chinese-cluecorpussmall](https://huggingface.co/uer/gpt2-chinese-cluecorpussmall)：GPT-2 的初始模型。Nova 在它的基础上，用约 22 亿字的多领域中文语料继续训练。
+- [ggml](https://github.com/ggml-org/ggml)（MIT）：在本机运行模型。
+- [jieba](https://github.com/fxsjy/jieba)（MIT）：分词词表。
+- [魔然](https://github.com/rimeinn/rime-moran)：`default.yaml` 的底子。
+- [雾凇拼音](https://github.com/iDvel/rime-ice)：搜狗双拼的键位规则。
+
+许可证：[GPL-3.0](LICENSE.txt)。

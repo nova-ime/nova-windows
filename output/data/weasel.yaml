@@ -29,9 +29,9 @@ style:
   click_to_capture: false
   horizontal: false
   fullscreen: false
-  inline_preedit: false
+  inline_preedit: true
   preedit_type: composition
-  display_tray_icon: false
+  display_tray_icon: true
   label_format: "%s."
   mark_text: ""
   hover_type: none # semi_light, hilite

@@ -27,6 +27,14 @@
 #define ID_WEASELTRAY_DISABLE_ASCII     40014
 #define ID_WEASELTRAY_RERUN_SERVICE     40015
 #define ID_WEASELTRAY_LOGDIR            40016
+#define ID_NOVA_LAYOUT_ZRM              40020
+#define ID_NOVA_LAYOUT_FLYPY            40021
+#define ID_NOVA_LAYOUT_MSPY             40022
+#define ID_NOVA_LAYOUT_SOGOU            40023
+#define ID_NOVA_LAYOUT_QUANPIN          40024
+#define ID_NOVA_FULL_SHAPE              40025
+#define ID_NOVA_ASCII_PUNCT             40026
+#define ID_NOVA_HELP                    40027
 
 // Next default values for new objects
 // 

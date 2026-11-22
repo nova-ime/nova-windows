@@ -4,6 +4,7 @@
 #include <map>
 #include <string>
 #include <mutex>
+#include <atomic>
 
 #include <rime_api.h>
 
@@ -75,6 +76,10 @@ class RimeWithWeaselHandler : public weasel::RequestHandler {
 
   void OnUpdateUI(std::function<void()> const& cb);
 
+  // 托盘或语言栏菜单改了 Nova 的输入方式、开关（存在注册表里，见 NovaOptions.h）。
+  // 菜单命令可能在服务的消息线程上，不直接碰 Rime 会话：只做记号，下一次按键时再设给所有会话。
+  void NovaOptionsChanged() { m_nova_dirty = true; }
+
  private:
   void _Setup();
   bool _IsDeployerRunning();
@@ -128,6 +133,8 @@ class RimeWithWeaselHandler : public weasel::RequestHandler {
   SessionStatusMap m_session_status_map;
   bool m_current_dark_mode;
   bool m_global_ascii_mode;
+  std::atomic<bool> m_nova_dirty{false};
+  void _ApplyNovaOptions(RimeSessionId session_id);
   int m_show_notifications_time;
   DWORD m_pid;
 };

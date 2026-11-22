@@ -11,6 +11,7 @@
 #include <vector>
 #include <regex>
 #include <rime_api.h>
+#include <NovaOptions.h>
 
 #define TRANSPARENT_COLOR 0x00000000
 
@@ -206,6 +207,7 @@ DWORD RimeWithWeaselHandler::AddSession(LPWSTR buffer, EatLine eat) {
       return 0;
   }
   RimeSessionId session_id = (RimeSessionId)rime_api->create_session();
+  _ApplyNovaOptions(session_id);
   if (m_global_ascii_mode) {
     for (const auto& pair : m_session_status_map) {
       if (pair.first) {
@@ -304,6 +306,11 @@ BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
   if (m_disabled)
     return FALSE;
   RimeSessionId session_id = to_session_id(ipc_id);
+  if (m_nova_dirty.exchange(false)) {
+    for (const auto& pair : m_session_status_map)
+      if (pair.second.session_id)
+        _ApplyNovaOptions(pair.second.session_id);
+  }
   Bool handled = rime_api->process_key(session_id, keyEvent.keycode,
                                        expand_ibus_modifier(keyEvent.mask));
   // vim_mode when keydown only
@@ -557,6 +564,17 @@ void RimeWithWeaselHandler::EndMaintenance() {
     _UpdateUI(0);
   }
   m_session_status_map.clear();
+}
+
+// 单选组每一项都设，选中的为真；和 Mac 版 NovaOptions.all 一样。
+void RimeWithWeaselHandler::_ApplyNovaOptions(RimeSessionId session_id) {
+  if (!session_id)
+    return;
+  const std::wstring cur = nova::layout();
+  for (const auto& l : nova::kLayouts)
+    rime_api->set_option(session_id, l.option, Bool(cur == l.key));
+  for (const auto& t : nova::kToggles)
+    rime_api->set_option(session_id, t.option, Bool(nova::toggle(t)));
 }
 
 void RimeWithWeaselHandler::SetOption(WeaselSessionId ipc_id,
