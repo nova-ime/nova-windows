@@ -1,4 +1,6 @@
-# Nova 输入法（Windows）
+<img src="https://raw.githubusercontent.com/nova-ime/nova-macos/nova/resources/brand/xingyu-512.png" width="96" alt="星语">
+
+# Nova 星语输入法（Windows）
 
 [![Release](https://img.shields.io/github/v/release/nova-ime/nova-windows)](https://github.com/nova-ime/nova-windows/releases/latest)
 ![Platform](https://img.shields.io/badge/Windows-10%20%7C%2011%20x64-lightgrey)
@@ -38,9 +40,9 @@
    - 全拼
 
    以后随时可以在托盘菜单里换。
-4. 装好后，在任务栏的输入法列表里选「Nova」。
+4. 装好后，在任务栏的输入法列表里选「Nova 星语」。
 
-   如果列表里没有 Nova，或者切过去打不出字，注销重新登录一次。
+   如果列表里没有 Nova 星语，或者切过去打不出字，注销重新登录一次。
 
 如果装过小狼毫，安装程序会先把它移除。`%APPDATA%\Rime` 里的用户词库和设置文件保留不动，Nova 继续使用这个目录。
 
@@ -56,7 +58,7 @@
 2. **橙色的词，按数字改。** 没把握的词标成橙色，备选列在下面。按数字键换掉它，后面的词会跟着重新算。
 3. **改一个字，不用删整句。** 用 `←` `→` 把光标移到打错的地方直接改。
 
-在托盘或语言栏的 Nova 图标上点右键，可以：
+在托盘或语言栏的星语图标上点右键，可以：
 - 切换五种打法
 - 开关「全角字符」「中文状态下用英文标点」
 - 打开「使用说明」

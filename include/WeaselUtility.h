@@ -195,9 +195,9 @@ inline std::wstring get_weasel_ime_name() {
       langId == MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_HONGKONG) ||
       langId == MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_SINGAPORE) ||
       langId == MAKELANGID(LANG_CHINESE, SUBLANG_CHINESE_MACAU)) {
-    return L"Nova";
+    return L"Nova \u661f\u8bed";  // Nova 星语
   } else {
-    return L"Nova";
+    return L"Nova \u661f\u8bed";  // Nova 星语
   }
 }
 

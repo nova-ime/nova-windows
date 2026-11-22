@@ -4,7 +4,7 @@
 # 程序在一台装好 VS 2022 的 Windows 上编（NOVA_WIN_HOST，ssh 登录；C:\nova 下的编译环境见
 # nova-macos/.scratch/win/wbat），Nova 的数据取自 nova-macos 编好的 app，安装包用 Homebrew 的 makensis 打。
 #
-#   NOVA_VERSION=1.0.0 nova/package.sh            编译、取回、打包
+#   NOVA_VERSION=1.0.1 nova/package.sh            编译、取回、打包
 #   NOVA_SKIP_BUILD=1 nova/package.sh             只重新打包（程序用上次取回的）
 #
 # 步骤：
@@ -16,7 +16,7 @@
 #   4. makensis output/nova.nsi。
 set -euo pipefail
 cd "$(dirname "$0")/.."
-VERSION="${NOVA_VERSION:-1.0.0}"
+VERSION="${NOVA_VERSION:-1.0.1}"
 HOST="${NOVA_WIN_HOST:-192.168.1.3}"
 WUSER="${NOVA_WIN_USER:-steve chan}"
 MACOS="${NOVA_MACOS_DIR:-../nova-macos}"

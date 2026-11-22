@@ -14,7 +14,7 @@
 Unicode true
 
 !ifndef NOVA_VERSION
-!define NOVA_VERSION 1.0.0
+!define NOVA_VERSION 1.0.1
 !endif
 
 !define NOVA_ROOT "$INSTDIR\nova-${NOVA_VERSION}"
@@ -22,15 +22,16 @@ Unicode true
 ; 小狼毫的程序仍按这个键找安装位置、用户目录，不改。
 !define WEASEL_KEY "Software\Rime\Weasel"
 
-Name "Nova ${NOVA_VERSION}"
+Name "Nova 星语 ${NOVA_VERSION}"
 OutFile "archives\Nova-${NOVA_VERSION}-installer.exe"
 InstallDir "$PROGRAMFILES64\Nova"
 
 VIProductVersion "${NOVA_VERSION}.0"
-VIAddVersionKey /LANG=2052 "ProductName" "Nova"
-VIAddVersionKey /LANG=2052 "FileDescription" "Nova 输入法安装程序"
+VIAddVersionKey /LANG=2052 "CompanyName" "nova-ime"
+VIAddVersionKey /LANG=2052 "ProductName" "Nova 星语"
+VIAddVersionKey /LANG=2052 "FileDescription" "Nova 星语输入法安装程序"
 VIAddVersionKey /LANG=2052 "FileVersion" "${NOVA_VERSION}"
-VIAddVersionKey /LANG=2052 "LegalCopyright" "GPL-3.0. Based on Weasel and librime by RIME Developers."
+VIAddVersionKey /LANG=2052 "LegalCopyright" "© 2026 nova-ime · GPL-3.0 · 源自 RIME 小狼毫（式恕堂）"
 
 !define MUI_ICON ..\resource\weasel.ico
 !define MUI_ABORTWARNING
@@ -45,14 +46,14 @@ Var RadioSogou
 Var RadioQuanpin
 Var OldRoot
 
-!define MUI_WELCOMEPAGE_TITLE "安装 Nova ${NOVA_VERSION}"
-!define MUI_WELCOMEPAGE_TEXT "Nova 是整句输入法，用一个小型语言模型从整句上下文里挑字。$\r$\n$\r$\n安装需要约 300 MB 空间。如果装过小狼毫，安装程序会先把它移除，你的用户词库和设置文件保留不动。"
+!define MUI_WELCOMEPAGE_TITLE "安装 Nova 星语 ${NOVA_VERSION}"
+!define MUI_WELCOMEPAGE_TEXT "Nova 星语是整句输入法，用一个小型语言模型从整句上下文里挑字。$\r$\n$\r$\n安装需要约 300 MB 空间。如果装过小狼毫，安装程序会先把它移除，你的用户词库和设置文件保留不动。"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "LICENSE.txt"
 Page custom LayoutPage LayoutLeave
 !insertmacro MUI_PAGE_INSTFILES
-!define MUI_FINISHPAGE_TITLE "Nova 装好了"
-!define MUI_FINISHPAGE_TEXT "在任务栏的输入法列表里选「Nova」就能用。$\r$\n$\r$\n托盘里的 Nova 图标上点右键，可以换输入方式、打开使用说明。"
+!define MUI_FINISHPAGE_TITLE "Nova 星语装好了"
+!define MUI_FINISHPAGE_TEXT "在任务栏的输入法列表里选「Nova 星语」就能用。$\r$\n$\r$\n托盘里的星语图标上点右键，可以换输入方式、打开使用说明。"
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\data\help.html"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "打开使用说明"
 !insertmacro MUI_PAGE_FINISH
@@ -67,7 +68,7 @@ Page custom LayoutPage LayoutLeave
 Function .onInit
   ${IfNot} ${AtLeastWin10}
   ${OrIfNot} ${IsNativeAMD64}
-    MessageBox MB_OK|MB_ICONSTOP "Nova 需要 64 位（x64）的 Windows 10 或更新的系统。"
+    MessageBox MB_OK|MB_ICONSTOP "Nova 星语需要 64 位（x64）的 Windows 10 或更新的系统。"
     Abort
   ${EndIf}
   ; 上次选的输入方式；没有就是自然码。静默安装（/S）直接沿用。
@@ -185,7 +186,7 @@ Section "Nova"
   ; /s：注册成简体中文输入法，不弹选项窗口。
   ExecWait '"$INSTDIR\WeaselSetup.exe" /s'
 
-  WriteRegStr HKLM "${REG_UNINST_KEY}" "DisplayName" "Nova 输入法"
+  WriteRegStr HKLM "${REG_UNINST_KEY}" "DisplayName" "Nova 星语输入法"
   WriteRegStr HKLM "${REG_UNINST_KEY}" "DisplayIcon" '"$INSTDIR\WeaselServer.exe"'
   WriteRegStr HKLM "${REG_UNINST_KEY}" "DisplayVersion" "${NOVA_VERSION}"
   WriteRegStr HKLM "${REG_UNINST_KEY}" "UninstallString" '"$INSTDIR\uninstall.exe"'
@@ -204,11 +205,11 @@ Section "Nova"
   Exec "$INSTDIR\WeaselServer.exe"
 
   SetShellVarContext all
-  CreateDirectory "$SMPROGRAMS\Nova"
-  CreateShortCut "$SMPROGRAMS\Nova\Nova 使用说明.lnk" "$INSTDIR\data\help.html"
-  CreateShortCut "$SMPROGRAMS\Nova\Nova 设置文件夹.lnk" "$INSTDIR\WeaselServer.exe" "/userdir" "$SYSDIR\shell32.dll" 126
-  CreateShortCut "$SMPROGRAMS\Nova\Nova 重新加载设置.lnk" "$INSTDIR\WeaselDeployer.exe" "/deploy" "$SYSDIR\shell32.dll" 144
-  CreateShortCut "$SMPROGRAMS\Nova\卸载 Nova.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
+  CreateDirectory "$SMPROGRAMS\Nova 星语"
+  CreateShortCut "$SMPROGRAMS\Nova 星语\使用说明.lnk" "$INSTDIR\data\help.html"
+  CreateShortCut "$SMPROGRAMS\Nova 星语\设置文件夹.lnk" "$INSTDIR\WeaselServer.exe" "/userdir" "$SYSDIR\shell32.dll" 126
+  CreateShortCut "$SMPROGRAMS\Nova 星语\重新加载设置.lnk" "$INSTDIR\WeaselDeployer.exe" "/deploy" "$SYSDIR\shell32.dll" 144
+  CreateShortCut "$SMPROGRAMS\Nova 星语\卸载 Nova 星语.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\uninstall.exe" 0
 SectionEnd
 
 ;--------------------------------
@@ -228,6 +229,6 @@ Section "Uninstall"
   ${GetParent} "$INSTDIR" $0
   RMDir "$0"
   SetShellVarContext all
-  RMDir /r "$SMPROGRAMS\Nova"
+  RMDir /r "$SMPROGRAMS\Nova 星语"
   SetRebootFlag true
 SectionEnd
