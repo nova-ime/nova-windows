@@ -68,6 +68,33 @@ inline void set_toggle(const Toggle& t, bool on) {
                   &v, sizeof(v));
 }
 
+// 注册表里的字符串值，没有就是空串。
+inline std::wstring reg_string(const wchar_t* name) {
+  wchar_t buf[256] = {0};
+  DWORD len = sizeof(buf);
+  if (RegGetValueW(HKEY_CURRENT_USER, WEASEL_REG_KEY, name, RRF_RT_REG_SZ,
+                   NULL, buf, &len) == ERROR_SUCCESS)
+    return buf;
+  return L"";
+}
+
+// 空串就删掉这个值。
+inline void set_reg_string(const wchar_t* name, const std::wstring& value) {
+  if (value.empty()) {
+    RegDeleteKeyValueW(HKEY_CURRENT_USER, WEASEL_REG_KEY, name);
+    return;
+  }
+  RegSetKeyValueW(HKEY_CURRENT_USER, WEASEL_REG_KEY, name, REG_SZ,
+                  value.c_str(), (DWORD)((value.size() + 1) * sizeof(wchar_t)));
+}
+
+// 辅助码：zrm flypy moqi，存在 NovaAux，没设过就是自然码。换辅助码要重新编译词库，
+// 由设置窗口（WeaselDeployer /nova，见 WeaselDeployer/NovaAux.cpp）来做，这里只读。
+inline std::wstring aux() {
+  const std::wstring v = reg_string(L"NovaAux");
+  return (v == L"flypy" || v == L"moqi") ? v : L"zrm";
+}
+
 // 菜单命令是 Nova 的选项就改注册表并返回 true。
 inline bool handle_menu(UINT id) {
   for (const auto& l : kLayouts)

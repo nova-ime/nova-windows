@@ -14,7 +14,7 @@
 Unicode true
 
 !ifndef NOVA_VERSION
-!define NOVA_VERSION 1.0.2
+!define NOVA_VERSION 1.0.3
 !endif
 
 !define NOVA_ROOT "$INSTDIR\nova-${NOVA_VERSION}"
@@ -177,6 +177,7 @@ Section "Nova"
   File "WeaselSetup.exe"
   File "WeaselLanguageProfile.ps1"
   File "rime.dll"
+  File "rime_deployer.exe"  ; 设置窗口换辅助码时用它在本机编译词库
   Delete "$INSTDIR\WinSparkle.dll"  ; 1.0.2 起不再自动更新
 
   SetOutPath $INSTDIR\data
@@ -196,7 +197,7 @@ Section "Nova"
   WriteRegDWORD HKLM "${REG_UNINST_KEY}" "NoRepair" 1
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
-  DetailPrint "准备方案（第一次约半分钟）……"
+  DetailPrint "准备方案（第一次约半分钟；用小鹤、墨奇辅助码时约一分钟）……"
   ExecWait '"$INSTDIR\WeaselDeployer.exe" /deploy'
 
   SetRegView 64
@@ -206,6 +207,7 @@ Section "Nova"
 
   SetShellVarContext all
   CreateDirectory "$SMPROGRAMS\Nova 星语"
+  CreateShortCut "$SMPROGRAMS\Nova 星语\设置.lnk" "$INSTDIR\WeaselDeployer.exe" "/nova" "$INSTDIR\WeaselDeployer.exe" 0
   CreateShortCut "$SMPROGRAMS\Nova 星语\使用说明.lnk" "$INSTDIR\data\help.html"
   CreateShortCut "$SMPROGRAMS\Nova 星语\设置文件夹.lnk" "$INSTDIR\WeaselServer.exe" "/userdir" "$SYSDIR\shell32.dll" 126
   CreateShortCut "$SMPROGRAMS\Nova 星语\重新加载设置.lnk" "$INSTDIR\WeaselDeployer.exe" "/deploy" "$SYSDIR\shell32.dll" 144

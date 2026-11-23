@@ -4,19 +4,21 @@
 # 程序在一台装好 VS 2022 的 Windows 上编（NOVA_WIN_HOST，ssh 登录；C:\nova 下的编译环境见
 # nova-macos/.scratch/win/wbat），Nova 的数据取自 nova-macos 编好的 app，安装包用 Homebrew 的 makensis 打。
 #
-#   NOVA_VERSION=1.0.2 nova/package.sh            编译、取回、打包
+#   NOVA_VERSION=1.0.3 nova/package.sh            编译、取回、打包
 #   NOVA_SKIP_BUILD=1 nova/package.sh             只重新打包（程序用上次取回的）
 #
 # 步骤：
 #   1. 把这个仓库里改过的源码和 nova-macos/nova-ui 拷到 Windows 的 C:\nova\weasel，编 x64 和 Win32。
-#   2. 取回 weasel*.dll、Weasel*.exe 和 C:\nova\librime\dist\lib\rime.dll（带 nova-lm，见 rebuild-nova.bat）。
+#   2. 取回 weasel*.dll、Weasel*.exe 和 C:\nova\librime\dist\lib\rime.dll（带 nova-lm，见 rebuild-nova.bat），
+#      以及 rime_deployer.exe（设置窗口换辅助码时用它编译词库）。
 #   3. output/nova-data/：nova-macos 的 SharedSupport（方案、Lua、模型、预编译词库、OpenCC），
 #      去掉鼠须管的 squirrel.yaml，加上小狼毫的 weasel.yaml 和使用说明 help.html。
 #      词库是在 Mac 上编的；Windows 上用同一份 .bin，200 句逐键回放和 Mac 输出一致。
+#      nova_aux/ 里的词条表在 Mac 上是 xz 压缩的；Windows 版没有 xz 解压，解开后再打包（安装包本身用 LZMA 压缩）。
 #   4. makensis output/nova.nsi。
 set -euo pipefail
 cd "$(dirname "$0")/.."
-VERSION="${NOVA_VERSION:-1.0.2}"
+VERSION="${NOVA_VERSION:-1.0.3}"
 HOST="${NOVA_WIN_HOST:-192.168.1.3}"
 WUSER="${NOVA_WIN_USER:-steve chan}"
 MACOS="${NOVA_MACOS_DIR:-../nova-macos}"
@@ -38,7 +40,7 @@ wget_() { scp -q -F "$SSHCFG" "$W:$1" "$2" || { echo "下载失败：$1"; exit 1
 if [ -z "${NOVA_SKIP_BUILD:-}" ]; then
   echo "== 拷源码到 Windows"
   files=$( { git diff --name-only "$UPSTREAM_BASE"; git ls-files --others --exclude-standard; } \
-    | grep -E '\.(cpp|h|hpp|rc|vcxproj|filters)$' | sort -u)
+    | grep -E '\.(cpp|h|hpp|rc|vcxproj|filters|ico)$' | sort -u)
   for f in $files; do
     [ -f "$f" ] && wput "$f" "$W:C:/nova/weasel/$f"
   done
@@ -64,6 +66,7 @@ if [ -z "${NOVA_SKIP_BUILD:-}" ]; then
     [ -f "output/$f" ] || { echo "没取到 $f"; exit 1; }
   done
   wget_ "C:/nova/librime/dist/lib/rime.dll" output/
+  wget_ "C:/nova/librime/dist/bin/rime_deployer.exe" output/
 fi
 cp LICENSE.txt output/LICENSE.txt
 
@@ -73,6 +76,11 @@ rm -rf "$D"
 mkdir -p "$D"
 rsync -a --exclude squirrel.yaml --exclude installation.yaml --exclude user.yaml "$SS/" "$D/"
 cp output/data/weasel.yaml nova/help.html "$D/"
+xz -dc "$D/nova_aux/nova_wx.base.xz" >"$D/nova_aux/nova_wx.base.txt"
+rm "$D/nova_aux/nova_wx.base.xz"
+for f in nova_wx.base.txt flypy.txt moqi.txt; do
+  [ -s "$D/nova_aux/$f" ] || { echo "缺少辅助码数据 nova_aux/$f"; exit 1; }
+done
 echo "数据 $(du -sh "$D" | cut -f1)"
 
 echo "== 打包"

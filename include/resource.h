@@ -35,6 +35,7 @@
 #define ID_NOVA_FULL_SHAPE              40025
 #define ID_NOVA_ASCII_PUNCT             40026
 #define ID_NOVA_HELP                    40027
+#define ID_NOVA_OPTIONS_CHANGED         40028
 
 // Next default values for new objects
 //

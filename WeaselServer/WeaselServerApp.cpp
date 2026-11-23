@@ -63,9 +63,10 @@ void WeaselServerApp::SetupMenuHandlers() {
   m_server.AddMenuHandler(ID_WEASELTRAY_DEPLOY,
                           std::bind(execute, dir / L"WeaselDeployer.exe",
                                     std::wstring(L"/deploy")));
+  // Nova：「设置…」打开星语的设置窗口（WeaselDeployer/NovaSettingsWindow.cpp）。
   m_server.AddMenuHandler(
       ID_WEASELTRAY_SETTINGS,
-      std::bind(execute, dir / L"WeaselDeployer.exe", std::wstring()));
+      std::bind(execute, dir / L"WeaselDeployer.exe", std::wstring(L"/nova")));
   m_server.AddMenuHandler(
       ID_WEASELTRAY_DICT_MANAGEMENT,
       std::bind(execute, dir / L"WeaselDeployer.exe", std::wstring(L"/dict")));
@@ -97,6 +98,11 @@ void WeaselServerApp::SetupMenuHandlers() {
       m_handler->NovaOptionsChanged();
       return true;
     });
+  // 设置窗口改了注册表后发这个命令，让所有会话在下一次按键时重新读。
+  m_server.AddMenuHandler(ID_NOVA_OPTIONS_CHANGED, [this] {
+    m_handler->NovaOptionsChanged();
+    return true;
+  });
   m_server.AddMenuHandler(ID_NOVA_HELP,
                           std::bind(open, (dir / L"data" / L"help.html").wstring()));
 }

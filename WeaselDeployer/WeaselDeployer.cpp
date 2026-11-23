@@ -6,6 +6,8 @@
 #include <vector>
 #include "WeaselDeployer.h"
 #include "Configurator.h"
+#include "NovaAux.h"
+#include "NovaSettingsWindow.h"
 #include <ShellScalingApi.h>
 
 CAppModule _Module;
@@ -101,6 +103,9 @@ int wmain(int argc, wchar_t* argv[]) {
   if (!hMutex) {
     ret = 1;
   } else if (GetLastError() == ERROR_ALREADY_EXISTS) {
+    // Nova：设置窗口已经开着时，再点「设置…」就把它提到前面。
+    if (argc == 2 && IsOption(argv[1], L"/nova"))
+      ActivateNovaSettings();
     ret = 1;
   } else {
     ret = Run(argc, argv);
@@ -133,7 +138,14 @@ static int Run(int argc, wchar_t* argv[]) {
     return configurator.Run(false);
   }
 
+  // Nova：星语的设置窗口。
+  if (IsOption(args.front(), L"/nova") && args.size() == 1) {
+    return ShowNovaSettings();
+  }
+
+  // Nova：用的不是自然码辅助码、而升级后词条表变了，部署前先按新词条重新生成词库。
   if (IsOption(args.front(), L"/deploy") && args.size() == 1) {
+    nova_aux::rebuild_if_needed();
     return configurator.UpdateWorkspace();
   }
 
@@ -147,5 +159,7 @@ static int Run(int argc, wchar_t* argv[]) {
   }
 
   bool installing = IsOption(args.front(), L"/install") && args.size() == 1;
+  if (installing)
+    nova_aux::rebuild_if_needed();
   return configurator.Run(installing);
 }
