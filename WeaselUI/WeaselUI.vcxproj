@@ -294,6 +294,9 @@
     <ClCompile Include="..\nova-ui\src\layout.cc">
       <ObjectFileName>$(IntDir)nova_ui_layout.obj</ObjectFileName>
     </ClCompile>
+    <ClCompile Include="..\nova-ui\src\theme.cc">
+      <ObjectFileName>$(IntDir)nova_ui_theme.obj</ObjectFileName>
+    </ClCompile>
     <ClCompile Include="FullScreenLayout.cpp" />
     <ClCompile Include="HorizontalLayout.cpp" />
     <ClCompile Include="Layout.cpp" />

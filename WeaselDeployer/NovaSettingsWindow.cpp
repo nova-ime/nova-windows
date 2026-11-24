@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "NovaSettingsWindow.h"
 #include "NovaAux.h"
+#include "NovaThemeUI.h"
 #include <WeaselIPC.h>
 #include <WeaselUtility.h>
 #include <NovaOptions.h>
@@ -30,7 +31,14 @@ enum : int {
   IDC_OPEN_HELP = 142,
 };
 
-enum Page { kLayoutPage, kOptionsPage, kHelpPage, kAdvancedPage, kPageCount };
+enum Page {
+  kLayoutPage,
+  kOptionsPage,
+  kAppearancePage,
+  kHelpPage,
+  kAdvancedPage,
+  kPageCount
+};
 
 struct Window {
   HWND hwnd = NULL;
@@ -215,8 +223,8 @@ void build() {
                            rc.bottom - g->px(16), g->hwnd,
                            (HMENU)(INT_PTR)IDC_TAB, GetModuleHandle(NULL), NULL);
   SendMessageW(g->tab, WM_SETFONT, (WPARAM)g->font, TRUE);
-  const wchar_t* titles[kPageCount] = {L"输入方式", L"选项", L"使用说明",
-                                       L"高级"};
+  const wchar_t* titles[kPageCount] = {L"输入方式", L"选项", L"外观",
+                                       L"使用说明", L"高级"};
   for (int i = 0; i < kPageCount; ++i) {
     TCITEMW item = {TCIF_TEXT};
     item.pszText = (LPWSTR)titles[i];
@@ -266,6 +274,14 @@ void build() {
   y += 50;
   g->status = label(kOptionsPage, L"", x, y, w, 40);
 
+  // 外观：主题选择和编辑器，见 NovaThemeUI.cpp。
+  nova_theme_ui::Fonts fonts;
+  fonts.normal = g->font;
+  fonts.bold = g->bold;
+  fonts.dpi = g->dpi;
+  nova_theme_ui::BuildPage(g->hwnd, fonts, x, top, w,
+                           &g->pages[kAppearancePage]);
+
   // 使用说明：用系统自带的网页控件显示安装目录里的 help.html。
   const std::wstring url = L"file:///" + help_path().wstring();
   g->help = add(kHelpPage, L"AtlAxWin", url.c_str(), WS_VSCROLL, 16, 40,
@@ -299,6 +315,8 @@ LRESULT CALLBACK proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       break;
     }
     case WM_COMMAND: {
+      if (nova_theme_ui::OnCommand(hwnd, wp, lp))
+        return 0;
       const int id = LOWORD(wp);
       if (HIWORD(wp) != BN_CLICKED)
         break;
@@ -379,6 +397,7 @@ int ShowNovaSettings() {
   wc.lpszClassName = kClass;
   wc.hIcon = LoadIcon(inst, MAKEINTRESOURCE(IDI_DEPLOY));
   RegisterClassExW(&wc);
+  nova_theme_ui::Register(inst);
 
   auto window = std::make_unique<Window>();
   g = window.get();
@@ -396,7 +415,7 @@ int ShowNovaSettings() {
   lf.lfWeight = FW_BOLD;
   g->bold = CreateFontIndirectW(&lf);
 
-  RECT r = {0, 0, g->px(540), g->px(460)};
+  RECT r = {0, 0, g->px(540), g->px(480)};
   const DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
   AdjustWindowRectEx(&r, style, FALSE, 0);
   g->hwnd = CreateWindowExW(0, kClass, L"Nova 星语 设置", style, CW_USEDEFAULT,
@@ -410,6 +429,8 @@ int ShowNovaSettings() {
 
   MSG msg;
   while (GetMessageW(&msg, NULL, 0, 0) > 0) {
+    if (nova_theme_ui::PreTranslate(&msg))
+      continue;
     if (IsDialogMessageW(g->hwnd, &msg))
       continue;
     TranslateMessage(&msg);

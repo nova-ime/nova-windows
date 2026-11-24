@@ -8,6 +8,7 @@
 #include <nova_ui.h>
 #include <wrl.h>
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -23,6 +24,9 @@ class NovaRenderer {
     // style/inline_preedit: the input is written into the document, so the
     // panel does not repeat it (same rule as Squirrel).
     bool inline_preedit = false;
+    // Nova theme: colors, fonts, font size and shapes. When set, it wins over
+    // face / font_size above (font/size is in points, like on the Mac).
+    std::shared_ptr<NovaUITheme> theme;
   };
 
   NovaRenderer();
@@ -58,6 +62,8 @@ class NovaRenderer {
   int BlockEnd(int index) const;
 
   static double FullHeight(const Style& style);
+  // Space around the panel content (theme shape/edge).
+  static double Edge(const Style& style);
 
   struct Impl;
 

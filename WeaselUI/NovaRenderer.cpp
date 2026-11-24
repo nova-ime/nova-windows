@@ -43,10 +43,29 @@ std::wstring FirstFace(const std::wstring& faces) {
   return f.substr(a, b - a + 1);
 }
 
-D2D1_COLOR_F ColorOf(NovaUIColor token) {
+D2D1_COLOR_F ColorOf(const NovaUITheme* theme, NovaUIColor token) {
   double c[4];
-  nova_ui_default_color(token, c);
+  nova_ui_theme_color(theme, token, c);
   return D2D1::ColorF((float)c[0], (float)c[1], (float)c[2], (float)c[3]);
+}
+
+// Theme value as UTF-16; empty when missing. nova_ui_theme_get is not const.
+std::wstring ThemeText(const std::shared_ptr<NovaUITheme>& theme,
+                       const char* key) {
+  if (!theme)
+    return std::wstring();
+  return ToWide(nova_ui_theme_get(theme.get(), key));
+}
+
+// nova-ui style for `style`: the theme's size and shapes when there is one.
+NovaUIStyle UIStyleOf(const NovaRenderer::Style& style) {
+  NovaUIStyle s = {style.font_size, style.linear ? 1 : 0,
+                   style.show_share ? 1 : 0};
+  if (style.theme) {
+    nova_ui_theme_style(style.theme.get(), &s);
+    s.font_size = s.font_size * 96.0 / 72.0;  // theme points -> logical px
+  }
+  return s;
 }
 
 }  // namespace
@@ -54,6 +73,8 @@ D2D1_COLOR_F ColorOf(NovaUIColor token) {
 struct NovaRenderer::Impl {
   IDWriteFactory* dwrite = nullptr;
   Style style;
+  NovaUIStyle ui{};
+  std::wstring face, mono;
   ComPtr<IDWriteTextFormat> formats[4];
   NovaUIContentHandle* content = nullptr;
   NovaUILayout* layout = nullptr;
@@ -74,18 +95,18 @@ struct NovaRenderer::Impl {
   IDWriteTextFormat* Format(NovaUIFont role) {
     int i = (int)role;
     if (!formats[i]) {
-      std::wstring face = style.face;
+      std::wstring f = face;
       DWRITE_FONT_WEIGHT weight = DWRITE_FONT_WEIGHT_NORMAL;
       if (role != NOVA_FONT_BODY) {
-        face = L"Consolas";
+        f = mono.empty() ? L"Consolas" : mono;
         if (role == NOVA_FONT_LABEL)
           weight = DWRITE_FONT_WEIGHT_MEDIUM;
-      } else if (face.empty()) {
-        face = L"Microsoft YaHei UI";
+      } else if (f.empty()) {
+        f = L"Microsoft YaHei UI";
       }
-      float size = (float)nova_ui_font_size(role, style.font_size);
+      float size = (float)nova_ui_font_size(role, ui.font_size);
       HRESULT hr = dwrite->CreateTextFormat(
-          face.c_str(), nullptr, weight, DWRITE_FONT_STYLE_NORMAL,
+          f.c_str(), nullptr, weight, DWRITE_FONT_STYLE_NORMAL,
           DWRITE_FONT_STRETCH_NORMAL, size, L"zh-cn", &formats[i]);
       if (FAILED(hr))
         return nullptr;
@@ -131,9 +152,13 @@ void NovaRenderer::Reset() {
 }
 
 double NovaRenderer::FullHeight(const Style& style) {
-  NovaUIStyle s = {style.font_size, style.linear ? 1 : 0,
-                   style.show_share ? 1 : 0};
+  NovaUIStyle s = UIStyleOf(style);
   return nova_ui_full_height(&s);
+}
+
+double NovaRenderer::Edge(const Style& style) {
+  NovaUIStyle s = UIStyleOf(style);
+  return nova_ui_style_edge(&s);
 }
 
 bool NovaRenderer::Build(IDWriteFactory* dwrite,
@@ -207,13 +232,22 @@ bool NovaRenderer::BuildContent(IDWriteFactory* dwrite,
   Impl& d = *impl_;
   if (!dwrite || !view)
     return false;
-  if (d.dwrite != dwrite || d.style.face != style.face ||
-      d.style.font_size != style.font_size) {
+  NovaUIStyle ui = UIStyleOf(style);
+  std::wstring face = style.face, mono;
+  if (style.theme) {
+    face = FirstFace(ThemeText(style.theme, "font/face"));
+    mono = FirstFace(ThemeText(style.theme, "font/mono"));
+  }
+  if (d.dwrite != dwrite || d.face != face || d.mono != mono ||
+      d.ui.font_size != ui.font_size) {
     for (auto& f : d.formats)
       f.Reset();
   }
   d.dwrite = dwrite;
   d.style = style;
+  d.ui = ui;
+  d.face = face;
+  d.mono = mono;
   d.source = view;
   // The letters row is only laid out next to word blocks; with no blocks,
   // no candidates and no preedit there is nothing to draw but the empty card
@@ -228,9 +262,7 @@ bool NovaRenderer::BuildContent(IDWriteFactory* dwrite,
     d.layout = nullptr;
     d.view = nullptr;
   }
-  NovaUIStyle s = {style.font_size, style.linear ? 1 : 0,
-                   style.show_share ? 1 : 0};
-  d.layout = nova_ui_layout_create(view, &s, MeasureCallback, &d, max_width,
+  d.layout = nova_ui_layout_create(view, &d.ui, MeasureCallback, &d, max_width,
                                    upward ? 1 : 0);
   if (!d.layout) {
     Reset();
@@ -247,6 +279,7 @@ void NovaRenderer::Paint(ID2D1RenderTarget* rt, float scale, int hover) const {
   if (!rt || !d.view)
     return;
   const NovaUILayoutView& v = *d.view;
+  const NovaUITheme* theme = d.style.theme.get();
   float old_dx, old_dy;
   rt->GetDpi(&old_dx, &old_dy);
   rt->SetDpi(96.0f, 96.0f);
@@ -257,7 +290,7 @@ void NovaRenderer::Paint(ID2D1RenderTarget* rt, float scale, int hover) const {
   ComPtr<ID2D1SolidColorBrush> brush;
   rt->CreateSolidColorBrush(D2D1::ColorF(0, 0, 0, 1), &brush);
   auto fill = [&](const NovaUIBox& b, NovaUIColor color) {
-    brush->SetColor(ColorOf(color));
+    brush->SetColor(ColorOf(theme, color));
     D2D1_RECT_F r = D2D1::RectF((float)b.rect.x, (float)b.rect.y,
                                 (float)(b.rect.x + b.rect.width),
                                 (float)(b.rect.y + b.rect.height));
@@ -271,7 +304,7 @@ void NovaRenderer::Paint(ID2D1RenderTarget* rt, float scale, int hover) const {
 
   if (v.card) {
     NovaUIBox card = {{0, 0, v.width, v.height},
-                      nova_ui_corner_radius(),
+                      nova_ui_style_corner_radius(&d.ui),
                       NOVA_COLOR_CARD};
     fill(card, NOVA_COLOR_CARD);
   }
@@ -307,7 +340,7 @@ void NovaRenderer::Paint(ID2D1RenderTarget* rt, float scale, int hover) const {
         if (open)
           sink->EndFigure(D2D1_FIGURE_END_OPEN);
         sink->Close();
-        brush->SetColor(ColorOf(NOVA_COLOR_BRANCH));
+        brush->SetColor(ColorOf(theme, NOVA_COLOR_BRANCH));
         rt->DrawGeometry(geo.Get(), brush.Get(), 1.0f);
       }
     }
@@ -337,9 +370,9 @@ void NovaRenderer::Paint(ID2D1RenderTarget* rt, float scale, int hover) const {
     auto tl = dm.TextLayout(w, r.font);
     if (!tl)
       continue;
-    brush->SetColor(ColorOf(r.color));
+    brush->SetColor(ColorOf(theme, r.color));
     if (r.hl_start >= 0 && r.hl_end > r.hl_start) {
-      hl_brush->SetColor(ColorOf(r.hl_color));
+      hl_brush->SetColor(ColorOf(theme, r.hl_color));
       UINT32 start = (UINT32)r.hl_start;
       UINT32 len = (UINT32)(r.hl_end - r.hl_start);
       if (start < w.size()) {

@@ -3,6 +3,7 @@
 #include "HorizontalLayout.h"
 #include "VHorizontalLayout.h"
 #include "VerticalLayout.h"
+#include <NovaTheme.h>
 #include <WeaselIPC.h>
 #include <algorithm>
 #include <cmath>
@@ -188,6 +189,13 @@ void WeaselPanel::ReleaseAllResources() {
 }
 
 void WeaselPanel::MoveTo(RECT rc) {
+  if (m_hWnd && m_indicator) {
+    // The switch tip sits next to the caret; keep it there.
+    m_inputPos = rc;
+    m_inputPos.bottom += 6;
+    _RefreshIndicator(m_indicator);
+    return;
+  }
   if (m_hWnd && m_nova_active) {
     // The Nova panel stays where it was anchored for the whole composition.
     // A hidden panel means the last composition is over (the client may hide
@@ -342,9 +350,17 @@ void WeaselPanel::Refresh() {
       m_pD2D->InitDirect2D();
   }
   if (_NovaWanted()) {
+    m_indicator = 0;
     _RefreshNova();
     return;
   }
+  if (wchar_t glyph = _IndicatorGlyph()) {
+    m_nova_active = false;
+    m_nova_anchored = false;
+    _RefreshIndicator(glyph);
+    return;
+  }
+  m_indicator = 0;
   m_nova_active = false;
   m_nova_anchored = false;
   m_nova_hover = m_nova_pressed = -1;
@@ -382,6 +398,7 @@ NovaRenderer::Style WeaselPanel::_NovaStyle() const {
               m_style.layout_type == UIStyle::LAYOUT_HORIZONTAL_FULLSCREEN;
   st.show_share = false;
   st.inline_preedit = m_style.inline_preedit;
+  st.theme = nova_theme::current();
   return st;
 }
 
@@ -401,7 +418,7 @@ void WeaselPanel::_RefreshNova() {
     // lower third of the screen or the full tree does not fit below.
     const int margin = (int)std::ceil(8 * scale);
     const int min_width = (int)std::ceil(480 * scale);
-    int start = m_inputPos.left - (int)std::ceil(nova_ui_edge() * scale);
+    int start = m_inputPos.left - (int)std::ceil(NovaRenderer::Edge(style) * scale);
     m_nova_left = (std::max<int>)(
         work.left + margin,
         (std::min<int>)(start, work.right - min_width - margin));
@@ -432,6 +449,115 @@ void WeaselPanel::_RefreshNova() {
   _ResizeWindowTo(size);
   _NovaReposition();
   RedrawWindow();
+}
+
+// Switch tips while nothing is being typed: ascii / full-shape switches and
+// the schema notice (only Nova exists, so it reports 中 or 英 instead).
+wchar_t WeaselPanel::_IndicatorGlyph() const {
+  if (m_preview_mode || !m_in_server || m_status.composing ||
+      !m_ctx.preedit.empty() || !m_ctx.cinfo.empty() ||
+      m_status.schema_id == L".default")
+    return 0;
+  const wchar_t kZh = L'\u4e2d', kEn = L'\u82f1', kFull = L'\u5168',
+                kHalf = L'\u534a';
+  const std::wstring& aux = m_ctx.aux.str;
+  if (aux.empty()) {
+    // Icon-only notice from an ascii_mode / full_shape switch.
+    if (m_status.ascii_mode)
+      return kEn;
+    if (m_status.type == FULL_SHAPE)
+      return m_status.full_shape ? kFull : kHalf;
+    return kZh;
+  }
+  if (aux == L"\u4e2d\u6587" || aux == L"\u4e2d")
+    return kZh;
+  if (aux == L"\u82f1\u6587" || aux == L"\u82f1")
+    return kEn;
+  if (aux == L"\u5168\u89d2" || aux == L"\u5168")
+    return kFull;
+  if (aux == L"\u534a\u89d2" || aux == L"\u534a")
+    return kHalf;
+  if (aux == m_status.schema_name)
+    return m_status.ascii_mode ? kEn : kZh;
+  return 0;
+}
+
+void WeaselPanel::_RefreshIndicator(wchar_t glyph) {
+  m_indicator = glyph;
+  const double scale = m_pD2D->m_dpiScaleLayout;
+  const int side = (int)std::ceil(36 * scale);
+  const int gap = (int)std::ceil(4 * scale);
+  _ResizeWindowTo(CSize(side, side));
+  RECT work{0, 0, 1920, 1080};
+  if (HMONITOR mon = MonitorFromRect(&m_inputPos, MONITOR_DEFAULTTONEAREST)) {
+    MONITORINFO info;
+    info.cbSize = sizeof(MONITORINFO);
+    if (GetMonitorInfo(mon, &info))
+      work = info.rcWork;
+  }
+  // Right of and below the caret; above it when there is no room below.
+  int x = m_inputPos.right + gap;
+  int y = m_inputPos.bottom - 6 + gap;
+  if (y + side > work.bottom)
+    y = m_inputPos.top - gap - side;
+  x = (std::max<int>)(work.left, (std::min<int>)(x, work.right - side));
+  y = (std::max<int>)(work.top, y);
+  SetWindowPos(m_hWnd, HWND_TOPMOST, x, y, 0, 0,
+               SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOREDRAW);
+  RedrawWindow();
+}
+
+void WeaselPanel::_PaintIndicator() {
+  ID2D1DeviceContext* rt = m_pD2D->dc.Get();
+  const float side = (float)std::ceil(36 * m_pD2D->m_dpiScaleLayout);
+  const float s = side / 256.0f;
+  auto theme = nova_theme::current();
+  auto color = [&](NovaUIColor token) {
+    double c[4];
+    nova_ui_theme_color(theme.get(), token, c);
+    return D2D1::ColorF((float)c[0], (float)c[1], (float)c[2], (float)c[3]);
+  };
+  ComPtr<ID2D1SolidColorBrush> fill, ink;
+  rt->CreateSolidColorBrush(color(NOVA_COLOR_CARD), &fill);
+  rt->CreateSolidColorBrush(color(NOVA_COLOR_PRIMARY), &ink);
+  if (!fill || !ink)
+    return;
+  rt->FillRoundedRectangle(
+      D2D1::RoundedRect(D2D1::RectF(0, 0, side, side), 40 * s, 40 * s),
+      fill.Get());
+  // The logo's two corner brackets (resources/brand/xingyu-glyph.svg, 256 box).
+  static const float kBrackets[2][6][2] = {
+      {{36, 36}, {112, 36}, {112, 64}, {64, 64}, {64, 148}, {36, 148}},
+      {{220, 220}, {144, 220}, {144, 192}, {192, 192}, {192, 108}, {220, 108}}};
+  ComPtr<ID2D1Factory> factory;
+  rt->GetFactory(&factory);
+  ComPtr<ID2D1PathGeometry> geo;
+  if (factory && SUCCEEDED(factory->CreatePathGeometry(&geo))) {
+    ComPtr<ID2D1GeometrySink> sink;
+    if (SUCCEEDED(geo->Open(&sink))) {
+      for (const auto& poly : kBrackets) {
+        sink->BeginFigure(D2D1::Point2F(poly[0][0] * s, poly[0][1] * s),
+                          D2D1_FIGURE_BEGIN_FILLED);
+        for (int i = 1; i < 6; i++)
+          sink->AddLine(D2D1::Point2F(poly[i][0] * s, poly[i][1] * s));
+        sink->EndFigure(D2D1_FIGURE_END_CLOSED);
+      }
+      sink->Close();
+      rt->FillGeometry(geo.Get(), ink.Get());
+    }
+  }
+  IDWriteFactory* dwrite = m_pD2D->m_pWriteFactory.Get();
+  ComPtr<IDWriteTextFormat> format;
+  if (dwrite &&
+      SUCCEEDED(dwrite->CreateTextFormat(
+          L"Microsoft YaHei UI", NULL, DWRITE_FONT_WEIGHT_SEMI_BOLD,
+          DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 104 * s,
+          L"zh-cn", &format))) {
+    format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+    format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
+    rt->DrawText(&m_indicator, 1, format.Get(), D2D1::RectF(0, 0, side, side),
+                 ink.Get());
+  }
 }
 
 void WeaselPanel::_NovaReposition() {
@@ -572,7 +698,7 @@ void WeaselPanel::_UpdateOffsetY(CRect& arc, CRect& prc) {
 }
 
 void WeaselPanel::DoPaint() {
-  if (!m_pD2D || (!m_layout && !m_nova_active) || !m_pD2D->dc ||
+  if (!m_pD2D || (!m_layout && !m_nova_active && !m_indicator) || !m_pD2D->dc ||
       !m_pD2D->swapChain)
     return;
   auto hr = m_pD2D->direct3dDevice
@@ -586,7 +712,9 @@ void WeaselPanel::DoPaint() {
   }
   m_pD2D->dc->BeginDraw();
   m_pD2D->dc->Clear(D2D1::ColorF({0.0f, 0.0f, 0.0f, 0.0f}));
-  if (m_nova_active) {
+  if (m_indicator) {
+    _PaintIndicator();
+  } else if (m_nova_active) {
     m_nova.Paint(m_pD2D->dc.Get(), m_pD2D->m_dpiScaleLayout, m_nova_hover);
   } else if (!hide_candidates) {
     const bool should_draw_background =

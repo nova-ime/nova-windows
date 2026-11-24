@@ -51,6 +51,10 @@ class WeaselPanel {
   void _NovaReposition();
   void _NovaPerform(int hit_index);
   NovaRenderer::Style _NovaStyle() const;
+  // Switch tip (中/英/全/半) drawn in the logo's corner brackets.
+  wchar_t _IndicatorGlyph() const;
+  void _RefreshIndicator(wchar_t glyph);
+  void _PaintIndicator();
   void _Reposition(bool adj = false);
   void _TextOut(CRect& rc,
                 const wstring& text,
@@ -126,6 +130,7 @@ class WeaselPanel {
   NovaActionFunc& m_novaCallback;
   NovaRenderer m_nova;
   bool m_nova_active = false;
+  wchar_t m_indicator = 0;
   bool m_nova_anchored = false;
   bool m_nova_upward = false;
   bool m_nova_tracking = false;

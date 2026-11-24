@@ -29,7 +29,7 @@ style:
   click_to_capture: false
   horizontal: false
   fullscreen: false
-  inline_preedit: true
+  inline_preedit: false
   preedit_type: composition
   display_tray_icon: true
   label_format: "%s."

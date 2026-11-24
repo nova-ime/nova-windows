@@ -173,9 +173,11 @@ STDMETHODIMP CGetTextExtentEditSession::DoEditSession(TfEditCookie ec) {
                                      &nSelection)))
     return E_FAIL;
 
-  const bool fixed = _pComposition != nullptr && _pTextService->_inlinePreedit;
+  // Nova: keep the position taken when this input started, inline or not.
+  // Without inline preedit the composition is empty, so its start is still
+  // the caret where this input began.
+  const bool fixed = _pComposition != nullptr;
   if (fixed && _pTextService->_inputRcSet) {
-    // Nova: keep the position taken when this input started.
     _pTextService->_SetCompositionPosition(_pTextService->_inputRc);
     return S_OK;
   }
