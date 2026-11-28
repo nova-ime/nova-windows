@@ -71,7 +71,8 @@ void Configurator::Initialize() {
   std::string user_dir = wtou8(WeaselUserDataPath().wstring());
   weasel_traits.shared_data_dir = shared_dir.c_str();
   weasel_traits.user_data_dir = user_dir.c_str();
-  weasel_traits.prebuilt_data_dir = weasel_traits.shared_data_dir;
+  // prebuilt_data_dir 不设，用 librime 的默认值 shared_data_dir/build：
+  // Nova 的预编译词库装在 data\build\。设成 data\ 时全新安装找不到词库，没有候选。
   std::string distribution_name = wtou8(get_weasel_ime_name());
   weasel_traits.distribution_name = distribution_name.c_str();
   weasel_traits.distribution_code_name = WEASEL_CODE_NAME;
