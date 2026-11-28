@@ -1,15 +1,16 @@
 #!/bin/bash
 # 在 Mac 上打 Windows 安装包：output/archives/Nova-<版本>-installer.exe。
 #
-# 程序在一台装好 VS 2022 的 Windows 上编（NOVA_WIN_HOST，ssh 登录；C:\nova 下的编译环境见
-# nova-macos/.scratch/win/wbat），Nova 的数据取自 nova-macos 编好的 app，安装包用 Homebrew 的 makensis 打。
+# 程序在一台 Windows 上编（NOVA_WIN_HOST，ssh 登录）。那台机器的编译环境用 nova/win-setup/setup.bat 从零搭，
+# 依赖版本全部写死在 nova/win-setup/versions.bat。Nova 的数据取自 nova-macos 编好的 app，安装包用 Homebrew 的 makensis 打。
 #
 #   NOVA_VERSION=1.0.3 nova/package.sh            编译、取回、打包
 #   NOVA_SKIP_BUILD=1 nova/package.sh             只重新打包（程序用上次取回的）
 #
 # 步骤：
-#   1. 把这个仓库里改过的源码和 nova-macos/nova-ui 拷到 Windows 的 C:\nova\weasel，编 x64 和 Win32。
-#   2. 取回 weasel*.dll、Weasel*.exe 和 C:\nova\librime\dist\lib\rime.dll（带 nova-lm，见 rebuild-nova.bat），
+#   1. 把这个仓库里改过的源码拷到 Windows 的 C:\nova\nova-windows，nova-macos 的 nova-ui、nova-lm 拷到 C:\nova\nova-macos，
+#      运行 nova/win-setup/build.bat：编 rime.dll（带 nova-lm）和小狼毫的 x64、Win32 程序。
+#   2. 取回 weasel*.dll、Weasel*.exe 和 rime.dll，
 #      以及 rime_deployer.exe（设置窗口换辅助码时用它编译词库）。
 #   3. output/nova-data/：nova-macos 的 SharedSupport（方案、Lua、模型、预编译词库、OpenCC），
 #      去掉鼠须管的 squirrel.yaml，加上小狼毫的 weasel.yaml 和使用说明 help.html。
@@ -19,13 +20,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 VERSION="${NOVA_VERSION:-1.0.3}"
-HOST="${NOVA_WIN_HOST:-192.168.1.3}"
-WUSER="${NOVA_WIN_USER:-steve chan}"
+HOST="${NOVA_WIN_HOST:-192.168.1.101}"
+WUSER="${NOVA_WIN_USER:-oliver}"
 MACOS="${NOVA_MACOS_DIR:-../nova-macos}"
 SS="$MACOS/build-release/Build/Products/Release/Squirrel.app/Contents/SharedSupport"
 UPSTREAM_BASE=f96ed24   # 分叉前的小狼毫提交；之后改过的文件都要拷过去
 
-# 用户名带空格，scp 的 user@host 写法不认，所以用临时 ssh 配置给这台机器起个别名
+# 用户名可能带空格，scp 的 user@host 写法不认，所以用临时 ssh 配置给这台机器起个别名
 SSHCFG=$(mktemp -t nova-ssh)
 trap 'rm -f "$SSHCFG"' EXIT
 printf 'Host novawin\n  HostName %s\n  User "%s"\n  BatchMode yes\n' "$HOST" "$WUSER" >"$SSHCFG"
@@ -40,33 +41,32 @@ wget_() { scp -q -F "$SSHCFG" "$W:$1" "$2" || { echo "下载失败：$1"; exit 1
 if [ -z "${NOVA_SKIP_BUILD:-}" ]; then
   echo "== 拷源码到 Windows"
   files=$( { git diff --name-only "$UPSTREAM_BASE"; git ls-files --others --exclude-standard; } \
-    | grep -E '\.(cpp|h|hpp|rc|vcxproj|filters|ico)$' | sort -u)
+    | grep -E '\.(cpp|h|hpp|rc|vcxproj|filters|ico|bat)$' | sort -u)
+  for d in $(for f in $files; do dirname "$f"; done | sort -u); do
+    wssh "if not exist C:\\nova\\nova-windows\\${d//\//\\} mkdir C:\\nova\\nova-windows\\${d//\//\\}" >/dev/null
+  done
   for f in $files; do
-    [ -f "$f" ] && wput "$f" "$W:C:/nova/weasel/$f"
+    [ -f "$f" ] && wput "$f" "$W:C:/nova/nova-windows/$f"
   done
-  wssh 'if not exist C:\nova\weasel\nova-ui\src mkdir C:\nova\weasel\nova-ui\src C:\nova\weasel\nova-ui\include'
   for f in "$MACOS"/nova-ui/src/*.cc "$MACOS"/nova-ui/src/*.h; do
-    [ -f "$f" ] && wput "$f" "$W:C:/nova/weasel/nova-ui/src/"
+    [ -f "$f" ] && wput "$f" "$W:C:/nova/nova-macos/nova-ui/src/"
   done
-  wput "$MACOS"/nova-ui/include/*.h "$W:C:/nova/weasel/nova-ui/include/"
+  wput "$MACOS"/nova-ui/include/*.h "$W:C:/nova/nova-macos/nova-ui/include/"
+  wput "$MACOS"/nova-lm/nova_lm.cc "$MACOS"/nova-lm/tree_lm.h "$MACOS"/nova-lm/build-win.cmake "$W:C:/nova/nova-macos/nova-lm/"
 
-  echo "== 编译 x64"
-  out=$(wssh 'C:\nova\weasel-build.bat')
-  echo "$out" | grep -E "error|MSBUILD_EXIT" | tail -20
-  echo "$out" | grep -q "MSBUILD_EXIT=0" || { echo "x64 编译失败"; exit 1; }
-  echo "== 编译 Win32（32 位程序里用的 weasel.dll）"
-  out=$(wssh 'C:\nova\weasel-win32.bat')
-  echo "$out" | grep -E "error|_EXIT" | tail -20
-  echo "$out" | grep -q "TSF_EXIT=0" || { echo "Win32 编译失败"; exit 1; }
+  echo "== 编译（rime.dll、x64、Win32）"
+  out=$(wssh 'C:\nova\nova-windows\nova\win-setup\build.bat')
+  echo "$out" | grep -E "error|\[build\]" | tail -20
+  echo "$out" | grep -q "BUILD_OK" || { echo "编译失败，日志在 Windows 的 C:\\nova\\build-*.log"; exit 1; }
 
   echo "== 取回程序"
   for f in weasel.dll weaselx64.dll WeaselServer.exe WeaselDeployer.exe WeaselSetup.exe WeaselLanguageProfile.ps1 \
            start_service.bat stop_service.bat; do
-    wget_ "C:/nova/weasel/output/$f" output/
+    wget_ "C:/nova/nova-windows/output/$f" output/
     [ -f "output/$f" ] || { echo "没取到 $f"; exit 1; }
   done
-  wget_ "C:/nova/librime/dist/lib/rime.dll" output/
-  wget_ "C:/nova/librime/dist/bin/rime_deployer.exe" output/
+  wget_ "C:/nova/src/librime/dist/lib/rime.dll" output/
+  wget_ "C:/nova/src/librime/dist/bin/rime_deployer.exe" output/
 fi
 cp LICENSE.txt output/LICENSE.txt
 
